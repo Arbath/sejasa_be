@@ -15,5 +15,5 @@ CREATE TABLE users {
     address VARCHAR(255),
     coordinate VARCHAR(255),
     account_type VARCHAR(255),
-    created_at TIMESTAMPZ NOW()
+    created_at TIMESTAMPTZ NOW()
 }
