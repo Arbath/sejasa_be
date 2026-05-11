@@ -1,0 +1,12 @@
+services:
+  axum-sejasa:
+    build: .
+    container_name: axum-sejasa
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8010:8000"
+
+    # di .env -> DATABASE_URL=postgres://user:password@host.docker.internal:5432/db_sejasa
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
