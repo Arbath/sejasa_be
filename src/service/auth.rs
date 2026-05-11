@@ -22,9 +22,8 @@ impl AuthService {
     }
     
     pub async fn login(&self, req: LoginReq) -> Result<LoginRes, AppError> {
-        let refresh_ttl = 60 * 60 * self.state.app_config.access_ttl;
         let user = self.authenticate(&req.email, &req.password).await?;
-        let expiration_time = Utc::now() + Duration::seconds(refresh_ttl as i64); 
+        let expiration_time = Utc::now() + Duration::seconds(self.state.app_config.refresh_ttl as i64); 
         let access_token = gen_access_token(&user, &self.state).await?;
         let refresh_token = gen_refresh_token(&user, &self.state).await?;
         self.token_repo.save_token(&refresh_token, user.id, expiration_time).await?;
