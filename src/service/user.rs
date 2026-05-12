@@ -1,26 +1,30 @@
 use axum::extract::{FromRef, FromRequestParts};
 use uuid::Uuid;
 
-use crate::{models::user::{UpdateProfileReq, User, UserCreate, UserProfile, UserReq}, repository::user::UserRepository, state::AppState, utils::response::AppError};
+use crate::{models::user::{UpdateProfileReq, User, UserCreate, UserProfileRes, UserReq, UserSkill, UserSkillCreate, UserSkillUpdate}, repository::user::{UserRepository, UserSkillsRepository}, state::AppState, utils::response::AppError};
 
 #[allow(dead_code)]
 pub struct UserService {
     user_repo: UserRepository,
+    skill_repo: UserSkillsRepository,
     state: AppState
 }
 
 impl UserService {
     pub fn new(state: AppState) -> Self {
         let user_repo = UserRepository::new(state.database.clone());
+        let skill_repo = UserSkillsRepository::new(state.database.clone());
 
-        Self {user_repo, state}
+        Self {user_repo, skill_repo, state}
     }
 
-    pub async fn user_profile(&self, user_id: Uuid) -> Result<UserProfile, AppError> {
+    pub async fn user_profile(&self, user_id: Uuid) -> Result<UserProfileRes, AppError> {
         let user = self.user_repo.find_user_profile(&user_id)
             .await.map_err(|e| AppError::NotFound(format!("User not found! {e}")))?;
 
-        Ok(user)
+        let skills = self.skill_repo.find_skills_by_user(&user_id).await?;
+        let user_profile = UserProfileRes::combine(user, skills);
+        Ok(user_profile)
     }
 
     pub async fn user_register(&self, data: UserReq) -> Result<User, AppError> {
@@ -41,12 +45,44 @@ impl UserService {
         Ok(created_user)
     }
 
-    pub async fn user_update(&self, user: User, data: UpdateProfileReq) -> Result<UserProfile, AppError>{
+    pub async fn user_update(&self, user: User, data: UpdateProfileReq) -> Result<UserProfileRes, AppError>{
         let _ = self.user_repo.update(user.id, data)
             .await.map_err(|e| AppError::BadRequest(format!{"Gagal update profile: {e}"}))?;
 
         let user_profile = self.user_repo.find_user_profile(&user.id).await?;
-        Ok(user_profile)
+        let skills = self.skill_repo.find_skills_by_user(&user.id).await?;
+        let user_profile_final = UserProfileRes::combine(user_profile, skills);
+        Ok(user_profile_final)
+    }
+
+    pub async fn find_skills_name(&self, name: &String) -> Result<Vec<UserSkill>, AppError> {
+        let skils = self.skill_repo.find_skills_by_name(name.clone()).await?;
+
+        Ok(skils)
+    }
+    
+    pub async fn find_all_skills(&self) -> Result<Vec<UserSkill>, AppError> {
+        let skils = self.skill_repo.find_all_skills().await?;
+
+        Ok(skils)
+    }
+
+    pub async fn add_my_skills(&self, user: User, data: UserSkillCreate) -> Result<UserSkill, AppError> {
+        let skils = self.skill_repo.create_skills(user.id, data).await?;
+        
+        Ok(skils)
+    }
+    
+    pub async fn edit_my_skills(&self, user: User, skill_id: i32, data: UserSkillUpdate) -> Result<UserSkill, AppError> {
+        let skils = self.skill_repo.update_skills(user.id, skill_id, data).await?;
+        
+        Ok(skils)
+    }
+    
+    pub async fn remove_my_skills(&self, user: User, skill_id: i32) -> Result<UserSkill, AppError> {
+        let skils = self.skill_repo.delete_skills(user.id, skill_id).await?;
+        
+        Ok(skils)
     }
 }
 

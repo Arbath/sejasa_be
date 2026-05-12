@@ -1,6 +1,6 @@
 use sqlx::PgPool;
 use uuid::Uuid;
-use crate::models::user::{UpdateProfileReq, User, UserCreate, UserProfile};
+use crate::models::user::{UpdateProfileReq, User, UserCreate, UserProfile, UserSkill, UserSkillCreate, UserSkillUpdate};
 use chrono::{DateTime, Utc};
 
 pub struct UserRepository {
@@ -253,5 +253,88 @@ impl TokenRepository {
         .await?;
 
         Ok(())
+    }
+}
+
+pub struct UserSkillsRepository {
+    pool: PgPool
+}
+
+impl UserSkillsRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
+    pub async fn find_skills_by_user(&self, user_id: &Uuid) -> Result<Vec<UserSkill>, sqlx::Error> {
+        sqlx::query_as::<_, UserSkill>(
+            r#"SELECT * FROM user_skills WHERE user_id = $1"#
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+    
+    pub async fn find_all_skills(&self) -> Result<Vec<UserSkill>, sqlx::Error> {
+        sqlx::query_as::<_, UserSkill>(
+            r#"SELECT * FROM user_skills LIMIT 10"#
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+    
+    pub async fn find_skills_by_id(&self, skill_id: i32) -> Result<UserSkill, sqlx::Error> {
+        sqlx::query_as::<_, UserSkill>(
+            r#"SELECT * FROM user_skills WHERE id = $1"#
+        )
+        .bind(skill_id)
+        .fetch_one(&self.pool)
+        .await
+    }
+    
+    pub async fn find_skills_by_name(&self, skill_name: String) -> Result<Vec<UserSkill>, sqlx::Error> {
+        let search_term = format!("%{}%", skill_name);
+        sqlx::query_as::<_, UserSkill>(
+            r#"SELECT * FROM user_skills WHERE name ILIKE $1"#
+        )
+        .bind(search_term)
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn create_skills(&self, user_id: Uuid, data: UserSkillCreate) -> Result<UserSkill, sqlx::Error> {
+        sqlx::query_as::<_, UserSkill>(
+            r#"INSERT INTO user_skills (name, descriptions, user_id) VALUES($1, $2, $3) RETURNING * "#
+        )
+        .bind(data.name)
+        .bind(data.descriptions)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn update_skills(&self, user_id: Uuid, skill_id: i32, data: UserSkillUpdate) -> Result<UserSkill, sqlx::Error> {
+        sqlx::query_as::<_,UserSkill>(
+            r#"UPDATE user_skills 
+                SET 
+                    name = COALESCE($1, name),
+                    descriptions = COALESCE($2, descriptions)
+                WHERE id = $3 AND user_id = $4 RETURNING *"#
+        )
+        .bind(data.name)
+        .bind(data.descriptions)
+        .bind(skill_id)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+    }
+    
+    pub async fn delete_skills(&self, user_id: Uuid, skill_id: i32) -> Result<UserSkill, sqlx::Error> {
+        sqlx::query_as::<_,UserSkill>(
+            r#"DELETE FROM user_skills WHERE id = $1 AND user_id = $2 RETURNING *"#
+        )
+        .bind(skill_id)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
     }
 }
