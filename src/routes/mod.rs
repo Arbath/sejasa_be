@@ -1,6 +1,7 @@
 pub mod home;
 pub mod auth;
 pub mod user;
+pub mod project;
 pub mod chat;
 
 use axum::Router;
@@ -27,9 +28,9 @@ pub fn create_app(state: AppState) -> Router {
         .nest("/api",user::routes()
             .layer(uncors.clone())
         )
-        // .nest("/api",rule::routes()
-        //     .layer(uncors.clone())
-        // )
+        .nest("/api",project::routes()
+            .layer(uncors.clone())
+        )
         // .nest("/api",webhook::routes()
         //     .layer(uncors.clone())
         // )

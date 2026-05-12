@@ -1,8 +1,8 @@
 -- Add up migration script here
-CREATE TABLE categories (
+CREATE TABLE category (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT now()
+    descriptions TEXT
 );
 
 CREATE TABLE projects (
@@ -10,16 +10,17 @@ CREATE TABLE projects (
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     address TEXT,
-    max_participan INTEGER,
-    descriptions TEXT, 
-    requiremets JSONB,
+    max_participant INTEGER,
+    status VARCHAR(20),
+    descriptions TEXT,
+    requirements JSONB,
     slug VARCHAR(255) UNIQUE,
     latitude DOUBLE PRECISION DEFAULT 0.0,
     longitude DOUBLE PRECISION DEFAULT 0.0,
     rating DOUBLE PRECISION DEFAULT 0.0,
     updated_at TIMESTAMPTZ DEFAULT now(),
     created_at TIMESTAMPTZ DEFAULT now(),
-    category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL
+    category_id INTEGER REFERENCES category(id) ON DELETE SET NULL
 );
 
 CREATE TABLE hastags (
