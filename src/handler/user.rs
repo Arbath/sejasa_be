@@ -30,7 +30,7 @@ pub async fn search_user_hand(
     let message = if let Some(n) = &query.name {
         format!("Result for '{}'", n)
     } else {
-        "All skills retrieved".to_string()
+        "All users retrieved".to_string()
     };
     Ok(WebResponse::ok(&uri, &message, res))
 }

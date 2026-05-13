@@ -2,7 +2,7 @@ use axum::{Router, routing::get};
 use crate::{handler::chat::{test, ws_hand, ws_chat}, state::AppState};
 
 async fn home() -> &'static str {
-    "Teknohole IoT service is running..."
+    "Sejasa rust backend is running..."
 }
 
 pub fn routes() -> Router<AppState> {
