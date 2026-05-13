@@ -185,7 +185,7 @@ impl UserRepository {
         sqlx::query_as::<_, UserProfile>(
         r#"
             SELECT 
-                u.id, u.name, u.email, u.password, u.created_at, u.account_type,
+                u.id, u.name, u.email, u.created_at, u.account_type,
                 p.gender, p.rating, p.contact, p.latitude, p.longitude, p.image, p.address
             FROM users u
             LEFT JOIN user_profile p ON u.id = p.user_id
@@ -194,6 +194,28 @@ impl UserRepository {
         )
         .bind(user_id)
         .fetch_one(&self.pool)
+        .await
+    }
+    
+    pub async fn search_user(&self, name: &String) -> Result<Vec<User>, sqlx::Error> {
+        let user_name = format!("%{}%", name);
+        sqlx::query_as::<_, User>(
+        r#"
+            SELECT * FROM users WHERE name ILIKE $1 ORDER BY name ASC
+            "#
+        )
+        .bind(user_name)
+        .fetch_all(&self.pool)
+        .await
+    }
+    
+    pub async fn find_all_users(&self) -> Result<Vec<User>, sqlx::Error> {
+        sqlx::query_as::<_, User>(
+        r#"
+            SELECT * FROM users ORDER BY name ASC
+            "#
+        )
+        .fetch_all(&self.pool)
         .await
     }
 }

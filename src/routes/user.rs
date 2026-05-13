@@ -6,6 +6,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/register", post(user_register_hand))
         .route("/user/{user_id}", get(user_profile_hand))
+        .route("/user", get(search_user_hand))
         .route("/me", get(my_profile_hand))
         .route("/me", patch(update_profile_hand))
         .route("/user/skills", get(find_skills_hand))

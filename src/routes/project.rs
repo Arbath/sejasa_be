@@ -4,8 +4,13 @@ use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/project/user", get(find_my_project_hand))
+        .route("/project/user/{user_id}/unauth", get(find_user_project_u_hand))
+        .route("/project/unauth", get(find_project_u_hand))
+        .route("/project/{project_id}/unauth", get(find_one_project_u_hand))
+        
         .route("/project/user/{user_id}", get(find_user_project_hand))
+        .route("/project/nearest", get(find_nearest_project_hand))
+        .route("/project/user", get(find_my_project_hand))
 
         .route("/project", get(find_project_hand))
         .route("/project", post(create_project_hand))

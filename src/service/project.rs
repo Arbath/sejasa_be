@@ -1,10 +1,11 @@
 use axum::extract::{FromRef, FromRequestParts};
 use uuid::Uuid;
 
-use crate::{models::{project::{Category, CategoryCreate, CategoryUpdate, Project, ProjectCreate, ProjectUpdate}, user::User}, repository::project::{CategoryRepository, ProjectRepository}, state::AppState, utils::response::AppError};
+use crate::{models::{project::{Category, CategoryCreate, CategoryUpdate, Project, ProjectCreate, ProjectQueryParams, ProjectUpdate}, user::User}, repository::{project::{CategoryRepository, ProjectRepository}, user::UserRepository}, state::AppState, utils::response::AppError};
 
 #[allow(dead_code)]
 pub struct ProjectService {
+    user_repo: UserRepository,
     project_repo: ProjectRepository,
     category_repo: CategoryRepository,
     state: AppState
@@ -12,24 +13,49 @@ pub struct ProjectService {
 
 impl ProjectService {
     pub fn new(state: AppState) -> Self {
+        let user_repo = UserRepository::new(state.database.clone());
         let project_repo = ProjectRepository::new(state.database.clone());
         let category_repo = CategoryRepository::new(state.database.clone());
 
-        Self { project_repo, category_repo, state }
+        Self { user_repo, project_repo, category_repo, state }
     }
 
-    pub async fn get_user_project(&self, user_id: Uuid) -> Result<Vec<Project>, AppError> {
-        let query = self.project_repo.find_by_user(user_id).await?;
+    pub async fn get_nearest_project(&self, user_id: Uuid, distance: &f64) -> Result<Vec<Project>, AppError> {
+        let user = self.user_repo.find_user_profile(&user_id).await?;
+        let query = self.project_repo.find_nearest(user.latitude, user.longitude, *distance).await?;
         Ok(query)
     }
     
-    pub async fn get_one_project(&self, project_id: Uuid) -> Result<Project, AppError> {
-        let query = self.project_repo.find_by_id(project_id).await?;
+    pub async fn get_user_project(&self, user_id: Uuid) -> Result<Vec<Project>, AppError> {
+        let user_profile = self.user_repo.find_user_profile(&user_id).await?;
+        let project = self.project_repo.find_by_user(user_id, user_profile.latitude, user_profile.longitude).await?;
+        let res = project;
+        Ok(res)
+    }
+    
+    pub async fn get_one_project(&self, project_id: Uuid, user_id: Uuid) -> Result<Project, AppError> {
+        let user_profile = self.user_repo.find_user_profile(&user_id).await?;
+        let query = self.project_repo.find_by_id(project_id, user_profile.latitude, user_profile.longitude).await?;
         Ok(query)
     }
 
-    pub async fn get_all_project(&self) -> Result<Vec<Project>, AppError> {
-        let query = self.project_repo.find_all().await?;
+    pub async fn search_all_project(&self, query: ProjectQueryParams) -> Result<Vec<Project>, AppError> {
+        let query = self.project_repo.search_projects(query).await?;
+        Ok(query)
+    }
+    
+    pub async fn get_all_project_unauth(&self) -> Result<Vec<Project>, AppError> {
+        let query = self.project_repo.find_all_unauth().await?;
+        Ok(query)
+    }
+
+    pub async fn get_user_project_unauth(&self, user_id: Uuid) -> Result<Vec<Project>, AppError> {
+        let query = self.project_repo.find_by_user_unauth(user_id).await?;
+        Ok(query)
+    }
+    
+    pub async fn get_one_project_unauth(&self, project_id: Uuid) -> Result<Project, AppError> {
+        let query = self.project_repo.find_by_id_unauth(project_id).await?;
         Ok(query)
     }
 

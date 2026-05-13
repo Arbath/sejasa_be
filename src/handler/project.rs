@@ -1,24 +1,64 @@
-use axum::response::IntoResponse;
+use axum::{extract::Query, response::IntoResponse};
 use http::Uri;
 use uuid::Uuid;
 
-use crate::{middleware::auth::{AuthAdmin, AuthUser}, models::project::{CategoryCreate, CategoryUpdate, ProjectCreate, ProjectUpdate}, service::project::ProjectService, utils::{request::{ValidatedJson, ValidatedPath}, response::{ApiError, WebResponse}}};
+use crate::{middleware::auth::{AuthAdmin, AuthUser}, models::project::{CategoryCreate, CategoryUpdate, ProjectCreate, ProjectQuery, ProjectQueryParams, ProjectUpdate}, service::project::ProjectService, utils::{request::{ValidatedJson, ValidatedPath}, response::{ApiError, WebResponse}}};
 
 
-pub async fn find_project_hand(
+pub async fn find_nearest_project_hand(
+    Query(query): Query<ProjectQuery>,
+    AuthUser(user) : AuthUser,
     uri: Uri,
     service: ProjectService,
 ) -> Result<impl IntoResponse, ApiError> {
-    let res = service.get_all_project().await.map_err(|e|e.with_path(&uri))?;
+    let distance =  query.distance.unwrap_or(1000.0);
+    let res = service.get_nearest_project(user.id, &distance).await.map_err(|e|e.with_path(&uri))?;
+    let message = format!("List projects on {} meters", distance as i64);
+    Ok(WebResponse::ok(&uri, &message, res))
+}
+
+pub async fn find_project_u_hand(
+    uri: Uri,
+    service: ProjectService,
+) -> Result<impl IntoResponse, ApiError> {
+    let res = service.get_all_project_unauth().await.map_err(|e|e.with_path(&uri))?;
+    Ok(WebResponse::ok(&uri, "List projects!", res))
+}
+
+pub async fn find_one_project_u_hand(
+    ValidatedPath(project_id): ValidatedPath<Uuid>,
+    uri: Uri,
+    service: ProjectService,
+) -> Result<impl IntoResponse, ApiError> {
+    let res = service.get_one_project_unauth(project_id).await.map_err(|e|e.with_path(&uri))?;
+    Ok(WebResponse::ok(&uri, "Success!", res))
+}
+
+pub async fn find_user_project_u_hand(
+    ValidatedPath(user_id): ValidatedPath<Uuid>,
+    uri: Uri,
+    service: ProjectService,
+) -> Result<impl IntoResponse, ApiError> {
+    let res = service.get_user_project_unauth(user_id).await.map_err(|e|e.with_path(&uri))?;
+    Ok(WebResponse::ok(&uri, "Success!", res))
+}
+
+pub async fn find_project_hand(
+    Query(query): Query<ProjectQueryParams>,
+    uri: Uri,
+    service: ProjectService,
+) -> Result<impl IntoResponse, ApiError> {
+    let res = service.search_all_project(query).await.map_err(|e|e.with_path(&uri))?;
     Ok(WebResponse::ok(&uri, "List projects!", res))
 }
 
 pub async fn find_one_project_hand(
     ValidatedPath(project_id): ValidatedPath<Uuid>,
     uri: Uri,
+    AuthUser(user) : AuthUser,
     service: ProjectService,
 ) -> Result<impl IntoResponse, ApiError> {
-    let res = service.get_one_project(project_id).await.map_err(|e|e.with_path(&uri))?;
+    let res = service.get_one_project(project_id, user.id).await.map_err(|e|e.with_path(&uri))?;
     Ok(WebResponse::ok(&uri, "Success!", res))
 }
 
@@ -39,6 +79,7 @@ pub async fn find_user_project_hand(
     let res = service.get_user_project(user_id).await.map_err(|e|e.with_path(&uri))?;
     Ok(WebResponse::ok(&uri, "Success!", res))
 }
+
 
 pub async fn create_project_hand(
     uri: Uri,

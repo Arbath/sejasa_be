@@ -40,8 +40,8 @@ pub struct UserProfile {
     pub rating: Option<f64>,
     pub contact: Option<String>, 
     pub address: Option<String>,
-    pub latitude: Option<f64>,
-    pub longitude: Option<f64>,
+    pub latitude: f64,
+    pub longitude: f64,
     pub image: Option<String>,
     pub account_type: AccountType,
     pub created_at: DateTime<Utc>
@@ -57,8 +57,8 @@ pub struct UserProfileRes {
     pub contact: Option<String>,
     pub skills: Vec<UserSkill>,
     pub address: Option<String>,
-    pub latitude: Option<f64>,
-    pub longitude: Option<f64>,
+    pub latitude: f64,
+    pub longitude: f64,
     pub image: Option<String>,
     pub account_type: AccountType,
     pub created_at: DateTime<Utc>
@@ -159,5 +159,9 @@ pub struct  UserSkillUpdate {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct  SkillQuery {
+    pub name: Option<String>
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct  UserQuery {
     pub name: Option<String>
 }

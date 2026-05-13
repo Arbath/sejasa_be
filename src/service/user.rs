@@ -17,6 +17,20 @@ impl UserService {
 
         Self {user_repo, skill_repo, state}
     }
+    
+    pub async fn search_user(&self, name: &String) -> Result<Vec<User>, AppError> {
+        let user = self.user_repo.search_user(&name)
+            .await.map_err(|e| AppError::NotFound(format!("User not found! {e}")))?;
+
+        Ok(user)
+    }
+    
+    pub async fn find_all_users(&self) -> Result<Vec<User>, AppError> {
+        let user = self.user_repo.find_all_users()
+            .await.map_err(|e| AppError::NotFound(format!("User not found! {e}")))?;
+
+        Ok(user)
+    }
 
     pub async fn user_profile(&self, user_id: Uuid) -> Result<UserProfileRes, AppError> {
         let user = self.user_repo.find_user_profile(&user_id)

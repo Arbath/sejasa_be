@@ -2,7 +2,7 @@ use axum::{extract::Query, response::IntoResponse};
 use http::Uri;
 use uuid::Uuid;
 
-use crate::{middleware::auth::AuthUser, models::user::{SkillQuery, UpdateProfileReq, UserReq, UserSkillCreate, UserSkillUpdate}, service::user::UserService, utils::{request::{ValidatedJson, ValidatedPath}, response::{ApiError, WebResponse}}};
+use crate::{middleware::auth::AuthUser, models::user::{SkillQuery, UpdateProfileReq, UserQuery, UserReq, UserSkillCreate, UserSkillUpdate}, service::user::UserService, utils::{request::{ValidatedJson, ValidatedPath}, response::{ApiError, WebResponse}}};
 
 pub async fn user_register_hand(
     uri: Uri,
@@ -13,13 +13,34 @@ pub async fn user_register_hand(
     Ok(WebResponse::created(&uri, "Register successfuly!", res))
 }
 
+pub async fn search_user_hand(
+    Query(query): Query<UserQuery>,
+    uri: Uri,
+    service: UserService
+) -> Result<impl IntoResponse, ApiError> {
+    let res = match &query.name {
+        Some(user_name) => {
+            service.search_user(user_name).await
+        },
+        None => {
+            service.find_all_users().await 
+        }
+    }.map_err(|e| e.with_path(&uri))?;
+
+    let message = if let Some(n) = &query.name {
+        format!("Result for '{}'", n)
+    } else {
+        "All skills retrieved".to_string()
+    };
+    Ok(WebResponse::ok(&uri, &message, res))
+}
+
 pub async fn my_profile_hand(
     uri: Uri,
     AuthUser(user): AuthUser,
     service: UserService
 ) -> Result<impl IntoResponse, ApiError> {
     let res = service.user_profile(user.id).await.map_err(|e|e.with_path(&uri))?;
-    println!("{:?}", user);
     Ok(WebResponse::ok(&uri, "Success", res))
 }
 
