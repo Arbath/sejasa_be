@@ -112,6 +112,28 @@ pub async fn remove_project_hand(
     Ok(WebResponse::ok(&uri, "Project deleted!", res))
 }
 
+pub async fn add_project_hastag_hand(
+    ValidatedPath((project_id, hastag_name)): ValidatedPath<(Uuid, String)>,
+    uri: Uri,
+    AuthUser(user) : AuthUser,
+    service: ProjectService,
+) -> Result<impl IntoResponse, ApiError> {
+    let res = service.add_hastags( project_id, &hastag_name, user).await.map_err(|e|e.with_path(&uri))?;
+    let message = format!("Hastag '{}' addeded!", hastag_name);
+    Ok(WebResponse::ok(&uri, &message, res))
+}
+
+pub async fn remove_project_hastag_hand(
+    ValidatedPath((project_id, hastag_name)): ValidatedPath<(Uuid, String)>,
+    uri: Uri,
+    AuthUser(user) : AuthUser,
+    service: ProjectService,
+) -> Result<impl IntoResponse, ApiError> {
+    let res = service.remove_hastags( project_id, &hastag_name, user).await.map_err(|e|e.with_path(&uri))?;
+    let message = format!("Hastag '{}' deleted!", hastag_name);
+    Ok(WebResponse::ok(&uri, &message, res))
+}
+
 pub async fn find_category_hand(
     uri: Uri,
     service: ProjectService,

@@ -1,7 +1,7 @@
 use sqlx::{PgPool, Postgres, QueryBuilder};
 use uuid::Uuid;
 
-use crate::models::project::{Category, CategoryCreate, CategoryUpdate, Project, ProjectCreate, ProjectQueryParams, ProjectUpdate};
+use crate::models::project::*;
 
 pub struct ProjectRepository {
     pool: PgPool
@@ -351,6 +351,24 @@ impl ProjectRepository {
         .fetch_all(&self.pool)
         .await
     }
+
+    pub async fn check_project_ownership(&self, project_id: Uuid, user_id: Uuid) -> Result<bool, sqlx::Error> {
+        
+        let has_permission: bool = sqlx::query_scalar(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM projects 
+                WHERE id = $1 AND user_id = $2
+            )
+            "#
+        )
+        .bind(project_id)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(has_permission)
+    }
     
     pub async fn find_by_user(&self, user_id: Uuid, latitude: f64, longitude: f64) -> Result<Vec<Project>, sqlx::Error>{
         sqlx::query_as::<_, Project>(
@@ -541,6 +559,86 @@ impl CategoryRepository {
             r#"DELETE FROM category WHERE id = $1 RETURNING *"#
         )
         .bind(category_id)
+        .fetch_one(&self.pool)
+        .await
+    }
+}
+
+pub struct HastagsRepository {
+    pool: PgPool
+}
+
+impl HastagsRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
+    pub async fn find_all_hastags(&self) -> Result<Vec<Hastags>, sqlx::Error> {
+        sqlx::query_as::<_, Hastags>(
+            r#"SELECT * FROM hastags"#
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn find_all_porject_hastags(&self, project_id: Uuid) -> Result<Vec<String>, sqlx::Error> {
+        sqlx::query_scalar::<_, String>(
+            r#"SELECT name FROM hastags WHERE project_id = $1"#
+        )
+        .bind(project_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+    
+    pub async fn find_one_hastags(&self, name: String) -> Result<Hastags, sqlx::Error> {
+        let search_name = format!("%{}%", name);
+        sqlx::query_as::<_, Hastags>(
+            r#"SELECT * FROM hastags WHERE name ILIKE $1"#
+        )
+        .bind(search_name)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn create(&self, project_id: &Uuid, name: &String) -> Result<Hastags, sqlx::Error>{
+        sqlx::query_as::<_, Hastags>(
+            r#"INSERT INTO hastags(name, project_id) VALUES($1, $2) RETURNING *"#
+        )
+        .bind(name)
+        .bind(project_id)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn create_bulk(&self, data: &Option<Vec<String>>, project_id: &Uuid) -> Result<Vec<String>, sqlx::Error> {
+        let tags = match data {
+            Some(t) if !t.is_empty() => t,
+            _ => return Ok(vec![]),
+        };
+
+        let mut query_builder: QueryBuilder<Postgres> = QueryBuilder::new(
+            "INSERT INTO hastags (name, project_id) "
+        );
+
+        query_builder.push_values(tags, |mut b, name| {
+            b.push_bind(name)
+            .push_bind(project_id);
+        });
+
+        query_builder.push(" RETURNING name");
+
+        let query = query_builder.build_query_scalar::<String>();
+        let inserted_names = query.fetch_all(&self.pool).await?;
+
+        Ok(inserted_names)
+    }
+    
+    pub async fn delete(&self, project_id: Uuid, name: &String) -> Result<Hastags, sqlx::Error>{
+        sqlx::query_as::<_, Hastags>(
+            r#"DELETE FROM hastags WHERE project_id = $1 AND name = $2 RETURNING *"#
+        )
+        .bind(project_id)
+        .bind(name)
         .fetch_one(&self.pool)
         .await
     }

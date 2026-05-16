@@ -47,6 +47,7 @@ pub struct CategoryUpdate {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Project {
     pub id: Uuid,
+    pub user_id: Uuid,
     pub name: String,
     pub status: ProjectStatus,
     pub rating: Option<f64>,
@@ -73,6 +74,12 @@ pub struct Project {
     pub owner_image: Option<String>,
     pub updated_at: Option<DateTime<Utc>>,
     pub created_at: Option<DateTime<Utc>>,
+}
+
+impl Project {
+    pub fn into_model(self, hastags: Vec<String>) -> Self {
+        Self {hastags, ..self}
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -138,6 +145,7 @@ pub struct ProjectCreate {
     pub slug: String,
     pub latitude: f64,
     pub longitude: f64,
+    pub hastags: Option<Vec<String>>,
     pub category_id: Option<i32>,
 }
 
@@ -156,7 +164,7 @@ pub struct ProjectUpdate {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct Hastag {
+pub struct Hastags {
     pub id: i32,
     pub project_id: Option<Uuid>,
     pub name: String,
@@ -164,13 +172,13 @@ pub struct Hastag {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HastagCreate {
+pub struct HastagsCreate {
     pub project_id: Uuid,
     pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HastagUpdate {
+pub struct HastagsUpdate {
     pub name: Option<String>,
 }
 

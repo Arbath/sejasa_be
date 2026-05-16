@@ -1,13 +1,14 @@
 use axum::extract::{FromRef, FromRequestParts};
 use uuid::Uuid;
 
-use crate::{models::{project::{Category, CategoryCreate, CategoryUpdate, Project, ProjectCreate, ProjectQueryParams, ProjectUpdate}, user::User}, repository::{project::{CategoryRepository, ProjectRepository}, user::UserRepository}, state::AppState, utils::response::AppError};
+use crate::{models::{project::{Category, CategoryCreate, CategoryUpdate, Project, ProjectCreate, ProjectQueryParams, ProjectUpdate}, user::User}, repository::{project::{CategoryRepository, HastagsRepository, ProjectRepository}, user::UserRepository}, state::AppState, utils::response::AppError};
 
 #[allow(dead_code)]
 pub struct ProjectService {
     user_repo: UserRepository,
     project_repo: ProjectRepository,
     category_repo: CategoryRepository,
+    hastags_repo: HastagsRepository,
     state: AppState
 }
 
@@ -16,8 +17,9 @@ impl ProjectService {
         let user_repo = UserRepository::new(state.database.clone());
         let project_repo = ProjectRepository::new(state.database.clone());
         let category_repo = CategoryRepository::new(state.database.clone());
+        let hastags_repo = HastagsRepository::new(state.database.clone());
 
-        Self { user_repo, project_repo, category_repo, state }
+        Self { user_repo, project_repo, category_repo, hastags_repo, state }
     }
 
     pub async fn get_nearest_project(&self, user_id: Uuid, distance: &f64) -> Result<Vec<Project>, AppError> {
@@ -60,8 +62,11 @@ impl ProjectService {
     }
 
     pub async fn add_project(&self, data: ProjectCreate, user: User) -> Result<Project, AppError> {
-        let query = self.project_repo.create(data, user.id).await?;
-        Ok(query)
+        let project = self.project_repo.create(data.clone(), user.id).await?;
+
+        let hastags = self.hastags_repo.create_bulk(&data.hastags, &project.id).await?;
+        let project_final = project.into_model(hastags);
+        Ok(project_final)
     }
     
     pub async fn edit_project(&self, data: ProjectUpdate, project_id: Uuid, user: User) -> Result<Project, AppError> {
@@ -106,6 +111,28 @@ impl ProjectService {
         }
         let query = self.category_repo.delete(category_id).await?;
         Ok(query)
+    }
+
+    pub async fn add_hastags(&self, project_id: Uuid, hastag_name: &String, user: User) -> Result<Vec<String>, AppError> {
+        let is_owner = self.project_repo.check_project_ownership(project_id, user.id).await?;
+        if !is_owner {
+            return Err(AppError::Forbidden("Anda tidak memiliki akses ke project ini".to_string()));
+        }
+
+        self.hastags_repo.create(&project_id, hastag_name).await?;
+        let list_hastags = self.hastags_repo.find_all_porject_hastags(project_id).await?;
+        Ok(list_hastags)
+    }
+    
+    pub async fn remove_hastags(&self, project_id: Uuid, hastag_name: &String, user: User) -> Result<Vec<String>, AppError> {
+        let is_owner = self.project_repo.check_project_ownership(project_id, user.id).await?;
+        if !is_owner {
+            return Err(AppError::Forbidden("Anda tidak memiliki akses ke project ini".to_string()));
+        }
+
+        self.hastags_repo.delete(project_id, hastag_name).await?;
+        let list_hastags = self.hastags_repo.find_all_porject_hastags(project_id).await?;
+        Ok(list_hastags)
     }
 }
 
