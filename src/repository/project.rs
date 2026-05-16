@@ -15,8 +15,11 @@ impl ProjectRepository {
     pub async fn search_projects(
         &self,
         params: ProjectQueryParams,
-    ) -> Result<Vec<Project>, sqlx::Error> {
-        
+    ) -> Result<(Vec<Project>, i64), sqlx::Error> { // Return tuple (Data, Total Items)
+        let page = params.page.unwrap_or(1);
+        let limit = params.limit.unwrap_or(10);
+        let offset = (page - 1) * limit;
+
         // Inisialisasi Base Query
         let mut builder: QueryBuilder<Postgres> = QueryBuilder::new(
             r#"
@@ -37,7 +40,9 @@ impl ProjectRepository {
                 c.name AS category_name,
                 u.name AS owner_name,
                 COALESCE(up.rating, 0.0) AS owner_rating,
-                up.image AS owner_image
+                up.image AS owner_image,
+                
+                COUNT(*) OVER() AS total_items
             "#
         );
 
@@ -66,18 +71,17 @@ impl ProjectRepository {
             "#
         );
 
-        if let Some(q) = params.q {
+        if let Some(q) = params.q.clone() {
             builder.push(" AND p.name ILIKE ");
             builder.push_bind(format!("%{}%", q));
         }
 
-        if let Some(status) = params.status {
+        if let Some(status) = params.status.clone() {
             builder.push(" AND p.status = ");
             builder.push_bind(status); 
         }
 
-        // Filter: Multiple Categories (webdev,sekolah,programmer)
-        if let Some(cat_str) = params.category {
+        if let Some(cat_str) = params.category.clone() {
             let categories: Vec<String> = cat_str.split(',')
                 .map(|s| s.trim().to_string())
                 .collect();
@@ -112,10 +116,21 @@ impl ProjectRepository {
             }
         }
 
-        let query = builder.build_query_as::<Project>();
-        let projects = query.fetch_all(&self.pool).await?;
+        // pagination
+        builder.push(" LIMIT ");
+        builder.push_bind(limit);
+        builder.push(" OFFSET ");
+        builder.push_bind(offset);
 
-        Ok(projects)
+        let query = builder.build_query_as::<ProjectPaginationRow>();
+        let rows = query.fetch_all(&self.pool).await?;
+
+        let total_items = rows.first().map(|r| r.total_items).unwrap_or(0);
+        
+        // Vec<ProjectPaginationRow> to Vec<Project>
+        let projects: Vec<Project> = rows.into_iter().map(|r| r.project).collect();
+
+        Ok((projects, total_items))
     }
 
     pub async fn find_nearest(&self, latitude: f64, longitude: f64, distance: f64) -> Result<Vec<Project>, sqlx::Error> {

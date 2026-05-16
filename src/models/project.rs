@@ -216,4 +216,13 @@ pub struct ProjectQueryParams {
     pub distance: Option<f64>,      // ?distance=10000
     pub lat: Option<f64>,           // Harus dikirim oleh frontend jika mau filter/sort by distance
     pub lon: Option<f64>,           // Harus dikirim oleh frontend jika mau filter/sort by distance
+    pub page: Option<i64>,          // page yang dibaca
+    pub limit: Option<i64>,         // limit per page
+}
+
+#[derive(FromRow)]
+pub struct ProjectPaginationRow {
+    #[sqlx(flatten)]
+    pub project: Project,
+    pub total_items: i64, // Hasil dari COUNT(*) OVER()
 }

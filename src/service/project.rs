@@ -41,7 +41,7 @@ impl ProjectService {
         Ok(query)
     }
 
-    pub async fn search_all_project(&self, query: ProjectQueryParams) -> Result<Vec<Project>, AppError> {
+    pub async fn search_all_project(&self, query: ProjectQueryParams) -> Result<(Vec<Project>, i64), AppError> {
         let query = self.project_repo.search_projects(query).await?;
         Ok(query)
     }

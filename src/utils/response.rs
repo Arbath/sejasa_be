@@ -13,8 +13,17 @@ pub struct WebResponse<T> {
     pub message: String,
     pub path: String,
     pub timestamp: String,
-    // #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meta: Option<PaginationMeta>,
     pub data: Option<T>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PaginationMeta {
+    pub current_page: i64,
+    pub limit_page: i64,
+    pub total_items: i64,
+    pub total_pages: i64,
 }
 
 impl<T: Serialize> WebResponse<T> {
@@ -29,6 +38,7 @@ impl<T: Serialize> WebResponse<T> {
                 message: message.to_string(),
                 path: uri.path().to_string(),
                 timestamp: Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(), // Format Z
+                meta: None,
                 data: Some(data),
             }),
         )
@@ -45,6 +55,24 @@ impl<T: Serialize> WebResponse<T> {
                 message: message.to_string(),
                 path: uri.path().to_string(),
                 timestamp: Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+                meta: None,
+                data: Some(data),
+            }),
+        )
+    }
+
+    // Helper Pagination
+    pub fn ok_paginated(uri: &Uri, message: &str, data: T, meta: PaginationMeta) -> (StatusCode, Json<Self>) {
+        let status = StatusCode::OK;
+        (
+            status,
+            Json(Self {
+                success: true,
+                status: status.as_u16(),
+                message: message.to_string(),
+                path: uri.path().to_string(),
+                timestamp: Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+                meta: Some(meta),
                 data: Some(data),
             }),
         )
@@ -62,6 +90,7 @@ impl WebResponse<()> {
                 message: message.to_string(),
                 path: uri.path().to_string(),
                 timestamp: Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+                meta: None,
                 data: None, 
             }),
         )
@@ -108,6 +137,7 @@ impl IntoResponse for ApiError {
             message,
             path: self.path,
             timestamp: Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+            meta: None,
             data: None::<()>,
         });
 
@@ -132,6 +162,7 @@ impl IntoResponse for AppError {
             message,
             path: "".to_string(),
             timestamp: Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+            meta: None,
             data: None::<()>,
         });
 

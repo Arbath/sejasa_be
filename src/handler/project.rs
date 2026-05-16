@@ -2,7 +2,7 @@ use axum::{extract::Query, response::IntoResponse};
 use http::Uri;
 use uuid::Uuid;
 
-use crate::{middleware::auth::{AuthAdmin, AuthUser}, models::project::{CategoryCreate, CategoryUpdate, ProjectCreate, ProjectQuery, ProjectQueryParams, ProjectUpdate}, service::project::ProjectService, utils::{request::{ValidatedJson, ValidatedPath}, response::{ApiError, WebResponse}}};
+use crate::{middleware::auth::{AuthAdmin, AuthUser}, models::project::{CategoryCreate, CategoryUpdate, ProjectCreate, ProjectQuery, ProjectQueryParams, ProjectUpdate}, service::project::ProjectService, utils::{request::{ValidatedJson, ValidatedPath}, response::{ApiError, PaginationMeta, WebResponse}}};
 
 
 pub async fn find_nearest_project_hand(
@@ -48,8 +48,17 @@ pub async fn find_project_hand(
     uri: Uri,
     service: ProjectService,
 ) -> Result<impl IntoResponse, ApiError> {
-    let res = service.search_all_project(query).await.map_err(|e|e.with_path(&uri))?;
-    Ok(WebResponse::ok(&uri, "List projects!", res))
+    let page = query.page.unwrap_or(1);
+    let limit = query.limit.unwrap_or(10);
+    let (data, total_items) = service.search_all_project(query).await.map_err(|e|e.with_path(&uri))?;
+    let total_pages = (total_items as f64 / limit as f64).ceil() as i64;
+    let meta = PaginationMeta {
+        current_page: page,
+        limit_page: limit,
+        total_items,
+        total_pages
+    };
+    Ok(WebResponse::ok_paginated(&uri, "List projects!", data, meta))
 }
 
 pub async fn find_one_project_hand(
