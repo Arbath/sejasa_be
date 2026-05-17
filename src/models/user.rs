@@ -37,6 +37,7 @@ pub struct UserProfile {
     pub name: String,
     pub email: String,
     pub gender: Option<String>,
+    pub descriptions: Option<String>, 
     pub rating: Option<f64>,
     pub contact: Option<String>, 
     pub address: Option<String>,
@@ -53,6 +54,7 @@ pub struct UserProfileRes {
     pub name: String,
     pub email: String,
     pub gender: Option<String>,
+    pub descriptions: Option<String>, 
     pub rating: Option<f64>,
     pub contact: Option<String>,
     pub skills: Vec<UserSkill>,
@@ -67,7 +69,7 @@ pub struct UserProfileRes {
 impl UserProfileRes {
     pub fn combine(profile: UserProfile, skills: Vec<UserSkill>) -> Self {
         let UserProfile { 
-            id, name, email, gender, rating, contact, 
+            id, name, email, gender,descriptions, rating, contact, 
             address, latitude, longitude, image, account_type, created_at 
         } = profile;
 
@@ -76,6 +78,7 @@ impl UserProfileRes {
             name, 
             email, 
             gender, 
+            descriptions,
             rating, 
             contact, 
             skills,
@@ -94,6 +97,7 @@ pub struct UpdateProfileReq {
     pub name: Option<String>,
     pub email: Option<String>,
     pub gender: Option<String>,
+    pub descriptions: Option<String>, 
     pub contact: Option<String>, 
     pub address: Option<String>,
     pub latitude: Option<f64>,

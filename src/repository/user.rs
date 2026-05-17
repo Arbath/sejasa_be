@@ -142,10 +142,11 @@ impl UserRepository {
 
         sqlx::query(
             r#"
-            INSERT INTO user_profile (user_id, gender, contact, address, latitude, longitude, image)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO user_profile (user_id, gender, descriptions, contact, address, latitude, longitude, image)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ON CONFLICT (user_id) DO UPDATE 
             SET gender = COALESCE(EXCLUDED.gender, user_profile.gender),
+                descriptions = COALESCE(EXCLUDED.descriptions, user_profile.descriptions),
                 contact = COALESCE(EXCLUDED.contact, user_profile.contact),
                 address = COALESCE(EXCLUDED.address, user_profile.address),
                 latitude = COALESCE(EXCLUDED.latitude, user_profile.latitude),
@@ -155,6 +156,7 @@ impl UserRepository {
         )
         .bind(user_id)
         .bind(data.gender)
+        .bind(data.descriptions)
         .bind(data.contact)
         .bind(data.address)
         .bind(data.latitude)
@@ -186,7 +188,7 @@ impl UserRepository {
         r#"
             SELECT 
                 u.id, u.name, u.email, u.created_at, u.account_type,
-                p.gender, p.rating, p.contact, p.latitude, p.longitude, p.image, p.address
+                p.gender,p.descriptions, p.rating, p.contact, p.latitude, p.longitude, p.image, p.address
             FROM users u
             LEFT JOIN user_profile p ON u.id = p.user_id
             WHERE u.id = $1

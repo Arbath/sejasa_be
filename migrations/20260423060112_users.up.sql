@@ -29,6 +29,7 @@ CREATE TABLE users (
 CREATE TABLE user_profile (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     gender VARCHAR(20),
+    descriptions TEXT,
     rating DOUBLE PRECISION DEFAULT 0.0,
     contact VARCHAR(50),
     latitude DOUBLE PRECISION DEFAULT 0.0,
