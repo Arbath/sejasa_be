@@ -2,20 +2,7 @@ use axum::{extract::Query, response::IntoResponse};
 use http::Uri;
 use uuid::Uuid;
 
-use crate::{middleware::auth::{AuthAdmin, AuthUser}, models::project::{CategoryCreate, CategoryUpdate, ProjectCreate, ProjectQuery, ProjectQueryParams, ProjectUpdate}, service::project::ProjectService, utils::{request::{ValidatedJson, ValidatedPath}, response::{ApiError, PaginationMeta, WebResponse}}};
-
-
-pub async fn find_nearest_project_hand(
-    Query(query): Query<ProjectQuery>,
-    AuthUser(user) : AuthUser,
-    uri: Uri,
-    service: ProjectService,
-) -> Result<impl IntoResponse, ApiError> {
-    let distance =  query.distance.unwrap_or(1000.0);
-    let res = service.get_nearest_project(user.id, &distance).await.map_err(|e|e.with_path(&uri))?;
-    let message = format!("List projects on {} meters", distance as i64);
-    Ok(WebResponse::ok(&uri, &message, res))
-}
+use crate::{middleware::auth::{AuthAdmin, AuthUser}, models::{project::{CategoryCreate, CategoryUpdate, ProjectCreate, ProjectParticipantUpdate, ProjectQueryParams, ProjectUpdate}, review::ReviewReq}, service::project::ProjectService, utils::{request::{ValidatedJson, ValidatedPath}, response::{ApiError, PaginationMeta, WebResponse}}};
 
 pub async fn find_project_u_hand(
     uri: Uri,
@@ -189,4 +176,68 @@ pub async fn remove_category_hand(
 ) -> Result<impl IntoResponse, ApiError> {
     let res = service.remove_category( category_id, user).await.map_err(|e|e.with_path(&uri))?;
     Ok(WebResponse::ok(&uri, "Category deleted!", res))
+}
+
+pub async fn apply_project_hand(
+    ValidatedPath(project_id): ValidatedPath<Uuid>,
+    uri: Uri,
+    AuthUser(user) : AuthUser,
+    service: ProjectService,
+) -> Result<impl IntoResponse, ApiError> {
+    let res = service.apply_project( project_id, user).await.map_err(|e|e.with_path(&uri))?;
+    Ok(WebResponse::ok(&uri, "Project applyed!", res))
+}
+
+pub async fn list_participant_hand(
+    ValidatedPath(project_id): ValidatedPath<Uuid>,
+    uri: Uri,
+    AuthUser(_) : AuthUser,
+    service: ProjectService,
+) -> Result<impl IntoResponse, ApiError> {
+    let res = service.list_participant_project(project_id).await.map_err(|e|e.with_path(&uri))?;
+    Ok(WebResponse::ok(&uri, "List project participant", res))
+}
+
+pub async fn apply_participant_hand(
+    ValidatedPath((project_id, project_part_id)): ValidatedPath<(Uuid, i32)>,
+    uri: Uri,
+    AuthUser(user) : AuthUser,
+    service: ProjectService,
+    ValidatedJson(req): ValidatedJson<ProjectParticipantUpdate>
+) -> Result<impl IntoResponse, ApiError> {
+    let res = service.apply_participant_project( project_id, project_part_id, user, req).await.map_err(|e|e.with_path(&uri))?;
+    Ok(WebResponse::ok(&uri, "Participant updated!", res))
+}
+
+pub async fn review_participant_hand(
+    ValidatedPath((project_id, participant_id)): ValidatedPath<(Uuid, Uuid)>,
+    uri: Uri,
+    AuthUser(user) : AuthUser,
+    service: ProjectService,
+    ValidatedJson(req): ValidatedJson<ReviewReq>
+) -> Result<impl IntoResponse, ApiError> {
+    let res = service.review_participant( project_id, participant_id, req, user).await.map_err(|e|e.with_path(&uri))?;
+    Ok(WebResponse::ok(&uri, "Participant reviewed!", res))
+}
+
+pub async fn review_all_participant_hand(
+    ValidatedPath(project_id): ValidatedPath<Uuid>,
+    uri: Uri,
+    AuthUser(user) : AuthUser,
+    service: ProjectService,
+    ValidatedJson(req): ValidatedJson<ReviewReq>
+) -> Result<impl IntoResponse, ApiError> {
+    let res = service.review_all_participant( project_id, req, user).await.map_err(|e|e.with_path(&uri))?;
+    Ok(WebResponse::ok(&uri, "All participant reviewed!", res))
+}
+
+pub async fn review_project_hand(
+    ValidatedPath(project_id): ValidatedPath<Uuid>,
+    uri: Uri,
+    AuthUser(user) : AuthUser,
+    service: ProjectService,
+    ValidatedJson(req): ValidatedJson<ReviewReq>
+) -> Result<impl IntoResponse, ApiError> {
+    let res = service.review_project( project_id, req, user).await.map_err(|e|e.with_path(&uri))?;
+    Ok(WebResponse::ok(&uri, "Project reviewed!", res))
 }

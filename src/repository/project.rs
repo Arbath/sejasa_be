@@ -25,7 +25,7 @@ impl ProjectRepository {
             r#"
             WITH ParticipantCount AS (
                 SELECT project_id, COUNT(id) AS count_current_participant
-                FROM project_participant
+                FROM project_participant WHERE status = 'accepted'
                 GROUP BY project_id
             ),
             HashtagList AS (
@@ -104,15 +104,24 @@ impl ProjectRepository {
         }
 
         // Sorting
-        match params.sort.as_deref() {
-            Some("oldest") => {
-                builder.push(" ORDER BY p.created_at ASC");
-            }
-            Some("closest") if has_location => {
-                builder.push(" ORDER BY distance_meters ASC");
-            }
-            _ => {
-                builder.push(" ORDER BY p.created_at DESC");
+        let dist_sort = params.most_distance.as_deref();
+        let time_sort = params.sort.as_deref();
+
+        if has_location && dist_sort == Some("nearest") {
+            builder.push(" ORDER BY distance_meters ASC");
+        } 
+        else if has_location && dist_sort == Some("farthest") {
+            builder.push(" ORDER BY distance_meters DESC");
+        } 
+        // Jika tidak ada koordinat atau tidak minta urut jarak, fallback ke urutan waktu
+        else {
+            match time_sort {
+                Some("oldest") => {
+                    builder.push(" ORDER BY p.created_at ASC");
+                }
+                _ => {
+                    builder.push(" ORDER BY p.created_at DESC");
+                }
             }
         }
 
@@ -133,65 +142,12 @@ impl ProjectRepository {
         Ok((projects, total_items))
     }
 
-    pub async fn find_nearest(&self, latitude: f64, longitude: f64, distance: f64) -> Result<Vec<Project>, sqlx::Error> {
-        sqlx::query_as::<_, Project>(
-            r#"
-            WITH ParticipantCount AS (
-                SELECT project_id, COUNT(id) AS count_current_participant
-                FROM project_participant
-                GROUP BY project_id
-            ),
-            HashtagList AS (
-                SELECT project_id, ARRAY_AGG(name) AS hastag_names
-                FROM hastags
-                GROUP BY project_id
-            )
-            SELECT 
-                p.*, 
-                -- Hitung jarak dan jadikan kolom virtual bernama 'distance_meters'
-                (
-                    6371000 * acos(
-                        cos(radians($1)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians($2)) + 
-                        sin(radians($1)) * sin(radians(p.latitude))
-                    )
-                ) AS distance_meters,
-                 COALESCE(pc.count_current_participant, 0) AS cur_participant,
-                COALESCE(hl.hastag_names, '{}') AS hastags,
-                 c.name AS category_name,
-                 u.name AS owner_name,
-                 up.rating AS owner_rating,
-                 up.image AS owner_image
-            FROM projects p
-            LEFT JOIN category c ON p.category_id = c.id
-            LEFT JOIN users u ON p.user_id = u.id
-            LEFT JOIN user_profile up ON p.user_id = up.user_id
-            LEFT JOIN ParticipantCount pc ON p.id = pc.project_id
-            LEFT JOIN HashtagList hl ON p.id = hl.project_id
-            WHERE p.latitude IS NOT NULL AND p.longitude IS NOT NULL
-            -- Filter agar hanya mengambil yang di dalam radius
-            AND (
-                6371000 * acos(
-                    cos(radians($1)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians($2)) + 
-                    sin(radians($1)) * sin(radians(p.latitude))
-                )
-            ) <= $3
-            -- Urutkan dari yang lokasinya paling dekat dengan user
-            ORDER BY distance_meters ASC
-            "#
-        )
-        .bind(latitude)
-        .bind(longitude)
-        .bind(distance)
-        .fetch_all(&self.pool)
-        .await
-    }
-
     pub async fn find_all(&self, latitude: f64, longitude: f64) -> Result<Vec<Project>, sqlx::Error>{
         sqlx::query_as::<_, Project>(
             r#"
             WITH ParticipantCount AS (
                 SELECT project_id, COUNT(id) AS count_current_participant
-                FROM project_participant
+                FROM project_participant WHERE status = 'accepted'
                 GROUP BY project_id
             ),
             HashtagList AS (
@@ -226,12 +182,12 @@ impl ProjectRepository {
         .await
     }
 
-    pub async fn find_by_id(&self, project_id: Uuid, latitude: f64, longitude: f64) -> Result<Project, sqlx::Error>{
+    pub async fn find_by_id(&self, project_id: Uuid, latitude: Option<f64>, longitude: Option<f64>) -> Result<Project, sqlx::Error>{
         sqlx::query_as::<_, Project>(
             r#"
             WITH ParticipantCount AS (
                 SELECT project_id, COUNT(id) AS count_current_participant
-                FROM project_participant
+                FROM project_participant WHERE status = 'accepted'
                 GROUP BY project_id
             ),
             HashtagList AS (
@@ -242,8 +198,8 @@ impl ProjectRepository {
             SELECT 
                 p.* ,(
                     6371000 * acos(
-                        cos(radians($1)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians($2)) + 
-                        sin(radians($1)) * sin(radians(p.latitude))
+                        cos(radians($1::float8)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians($2::float8)) + 
+                        sin(radians($1::float8)) * sin(radians(p.latitude))
                     )
                 ) AS distance_meters,
                 COALESCE(pc.count_current_participant, 0) AS cur_participant,
@@ -273,7 +229,7 @@ impl ProjectRepository {
             r#"
             WITH ParticipantCount AS (
                 SELECT project_id, COUNT(id) AS count_current_participant
-                FROM project_participant
+                FROM project_participant WHERE status = 'accepted'
                 GROUP BY project_id
             ),
             HashtagList AS (
@@ -306,7 +262,7 @@ impl ProjectRepository {
             r#"
             WITH ParticipantCount AS (
                 SELECT project_id, COUNT(id) AS count_current_participant
-                FROM project_participant
+                FROM project_participant WHERE status = 'accepted'
                 GROUP BY project_id
             ),
             HashtagList AS (
@@ -339,7 +295,7 @@ impl ProjectRepository {
             r#"
             WITH ParticipantCount AS (
                 SELECT project_id, COUNT(id) AS count_current_participant
-                FROM project_participant
+                FROM project_participant WHERE status = 'accepted'
                 GROUP BY project_id
             ),
             HashtagList AS (
@@ -384,13 +340,27 @@ impl ProjectRepository {
 
         Ok(has_permission)
     }
+
+    pub async fn check_status(&self, project_id: Uuid) -> Result<ProjectStatus, sqlx::Error> {
+        
+        let status = sqlx::query_scalar(
+            r#"
+            SELECT status FROM projects WHERE id = $1
+            "#
+        )
+        .bind(project_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(status)
+    }
     
     pub async fn find_by_user(&self, user_id: Uuid, latitude: f64, longitude: f64) -> Result<Vec<Project>, sqlx::Error>{
         sqlx::query_as::<_, Project>(
             r#"
             WITH ParticipantCount AS (
                 SELECT project_id, COUNT(id) AS count_current_participant
-                FROM project_participant
+                FROM project_participant WHERE status = 'accepted'
                 GROUP BY project_id
             ),
             HashtagList AS (
@@ -656,5 +626,74 @@ impl HastagsRepository {
         .bind(name)
         .fetch_one(&self.pool)
         .await
+    }
+}
+
+pub struct ParticipantRepository {
+    pool: PgPool
+}
+
+impl ParticipantRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
+    pub async fn find_all(&self, project_id: Uuid) -> Result<Vec<ProjectParticipant>, sqlx::Error> {
+        sqlx::query_as::<_, ProjectParticipant>(
+            r#"SELECT * FROM project_participant WHERE project_id = $1"#
+        )
+        .bind(project_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn create(&self, data: ProjectParticipantCreate) -> Result<ProjectParticipant, sqlx::Error> {
+        sqlx::query_as::<_, ProjectParticipant>(
+            r#"INSERT INTO project_participant(user_id, project_id, status) VALUES($1, $2, $3) RETURNING *"#
+        )
+        .bind(data.user_id)
+        .bind(data.project_id)
+        .bind(data.status)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn update_status(&self, data: ProjectParticipantUpdate, project_part_id: i32) -> Result<ProjectParticipant, sqlx::Error> {
+        sqlx::query_as::<_, ProjectParticipant>(
+            r#"UPDATE project_participant SET status = COALESCE($1, status) WHERE id = $2 RETURNING *"#
+        )
+        .bind(data.status)
+        .bind(project_part_id)
+        .fetch_one(&self.pool)
+        .await
+    }
+    
+    pub async fn update_status_all(&self, project_id: Uuid, status: ProjectParticipantStatus) -> Result<(), sqlx::Error> {
+        let _ = sqlx::query(
+            r#"UPDATE project_participant SET status = $1 WHERE project_id = $2"#
+        )
+        .bind(status)
+        .bind(project_id)
+        .fetch_one(&self.pool)
+        .await?;
+        
+        Ok(())
+    }
+
+    pub async fn check_participant_status(&self, project_id: Uuid, user_id: Uuid) -> Result<bool, sqlx::Error> {    
+        let has_permission: bool = sqlx::query_scalar(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM project_participant 
+                WHERE project_id = $1 AND user_id = $2 AND status = 'accepted'
+            )
+            "#
+        )
+        .bind(project_id)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(has_permission)
     }
 }

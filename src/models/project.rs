@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::models::user::UserProfile;
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq)]
 #[serde(rename_all = "lowercase")]
 #[sqlx(type_name = "VARCHAR", rename_all = "lowercase")]
 pub enum ProjectStatus {
@@ -154,7 +154,7 @@ pub struct ProjectUpdate {
     pub name: Option<String>,
     pub address: Option<String>,
     pub max_participant: Option<i32>,
-    pub status: ProjectStatus,
+    pub status: Option<ProjectStatus>,
     pub descriptions: Option<String>,
     pub requirements: Option<Value>,
     pub slug: Option<String>,
@@ -185,9 +185,9 @@ pub struct HastagsUpdate {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct ProjectParticipant {
     pub id: i32,
-    pub user_id: Option<Uuid>,
-    pub project_id: Option<Uuid>,
-    pub status: Option<String>,
+    pub user_id: Uuid,
+    pub project_id: Uuid,
+    pub status: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -199,7 +199,7 @@ pub struct ProjectParticipantCreate {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectParticipantUpdate {
-    pub status: Option<String>,
+    pub status: ProjectParticipantStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -214,6 +214,7 @@ pub struct ProjectQueryParams {
     pub status: Option<String>,     // ?status=done
     pub category: Option<String>,   // ?category=webdev,sekolah,programmer
     pub distance: Option<f64>,      // ?distance=10000
+    pub most_distance: Option<String>, // ?most_distance=nearest/farthest
     pub lat: Option<f64>,           // Harus dikirim oleh frontend jika mau filter/sort by distance
     pub lon: Option<f64>,           // Harus dikirim oleh frontend jika mau filter/sort by distance
     pub page: Option<i64>,          // page yang dibaca
