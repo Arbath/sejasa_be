@@ -1,7 +1,7 @@
 use axum::extract::{FromRef, FromRequestParts};
 use uuid::Uuid;
 
-use crate::{models::{project::{Category, CategoryCreate, CategoryUpdate, Project, ProjectCreate, ProjectParticipant, ProjectParticipantCreate, ProjectParticipantStatus, ProjectParticipantUpdate, ProjectQueryParams, ProjectStatus, ProjectUpdate}, review::{Review, ReviewReq}, user::User}, repository::{project::{CategoryRepository, HastagsRepository, ParticipantRepository, ProjectRepository}, review::ReviewRepository, user::UserRepository}, state::AppState, utils::response::AppError};
+use crate::{models::{project::{Category, CategoryCreate, CategoryUpdate, Project, ProjectCreate, ProjectParticipant, ProjectParticipantCreate, ProjectParticipantStatus, ProjectParticipantUpdate, ProjectQueryParams, ProjectRes, ProjectStatus, ProjectUpdate}, review::{Review, ReviewReq}, user::User}, repository::{project::{CategoryRepository, HastagsRepository, ParticipantRepository, ProjectRepository}, review::ReviewRepository, user::UserRepository}, state::AppState, utils::response::AppError};
 
 #[allow(dead_code)]
 pub struct ProjectService {
@@ -26,36 +26,35 @@ impl ProjectService {
         Self { user_repo, project_repo, category_repo, hastags_repo, participant_repo, review_repo, state }
     }
     
-    pub async fn get_user_project(&self, user_id: Uuid) -> Result<Vec<Project>, AppError> {
+    pub async fn get_user_project(&self, user_id: Uuid) -> Result<Vec<ProjectRes>, AppError> {
         let user_profile = self.user_repo.find_user_profile(&user_id).await?;
         let project = self.project_repo.find_by_user(user_id, user_profile.latitude, user_profile.longitude).await?;
         let res = project;
         Ok(res)
     }
+
+    pub async fn get_user_project_uploaded(&self, user_id: Uuid) -> Result<Vec<ProjectRes>, AppError> {
+        let user_profile = self.user_repo.find_user_profile(&user_id).await?;
+        let project = self.project_repo.find_by_user_uploaded(user_id, user_profile.latitude, user_profile.longitude).await?;
+        let res = project;
+        Ok(res)
+    }
+
+    pub async fn get_user_project_applyed(&self, user_id: Uuid, status: String) -> Result<Vec<ProjectRes>, AppError> {
+        let user_profile = self.user_repo.find_user_profile(&user_id).await?;
+        let project = self.project_repo.find_by_user_applyed(user_id, user_profile.latitude, user_profile.longitude, status).await?;
+        let res = project;
+        Ok(res)
+    }
     
-    pub async fn get_one_project(&self, project_id: Uuid, user_id: Uuid) -> Result<Project, AppError> {
+    pub async fn get_one_project(&self, project_id: Uuid, user_id: Uuid) -> Result<ProjectRes, AppError> {
         let user_profile = self.user_repo.find_user_profile(&user_id).await?;
         let project = self.project_repo.find_by_id(project_id, Some(user_profile.latitude), Some(user_profile.longitude)).await?;
         Ok(project)
     }
 
-    pub async fn search_all_project(&self, query: ProjectQueryParams) -> Result<(Vec<Project>, i64), AppError> {
+    pub async fn search_all_project(&self, query: ProjectQueryParams) -> Result<(Vec<ProjectRes>, i64), AppError> {
         let query = self.project_repo.search_projects(query).await?;
-        Ok(query)
-    }
-    
-    pub async fn get_all_project_unauth(&self) -> Result<Vec<Project>, AppError> {
-        let query = self.project_repo.find_all_unauth().await?;
-        Ok(query)
-    }
-
-    pub async fn get_user_project_unauth(&self, user_id: Uuid) -> Result<Vec<Project>, AppError> {
-        let query = self.project_repo.find_by_user_unauth(user_id).await?;
-        Ok(query)
-    }
-    
-    pub async fn get_one_project_unauth(&self, project_id: Uuid) -> Result<Project, AppError> {
-        let query = self.project_repo.find_by_id_unauth(project_id).await?;
         Ok(query)
     }
 
@@ -148,7 +147,7 @@ impl ProjectService {
         Ok(list_hastags)
     }
 
-    pub async fn apply_project(&self, project_id: Uuid, user: User) -> Result<Project, AppError> {
+    pub async fn apply_project(&self, project_id: Uuid, user: User) -> Result<ProjectRes, AppError> {
         let is_owner = self.project_repo.check_project_ownership(project_id, user.id).await?;
         if is_owner {
             return Err(AppError::Forbidden("Anda tidak bisa apply project milik Anda!".to_string()));
@@ -230,9 +229,9 @@ impl ProjectService {
         };
         
         let project = self.project_repo.find_by_id(project_id, None, None).await?;
-        let q = self.review_repo.create(project.user_id , project_id, user.id, data).await?;
+        let q = self.review_repo.create(project.owner.id , project_id, user.id, data).await?;
         let _ = self.review_repo.update_rating_project(q.project_id).await?;
-        let _ = self.review_repo.update_rating_user(project.user_id).await?;
+        let _ = self.review_repo.update_rating_user(project.owner.id).await?;
         Ok(q)
     }
 }

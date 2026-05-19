@@ -2,33 +2,7 @@ use axum::{extract::Query, response::IntoResponse};
 use http::Uri;
 use uuid::Uuid;
 
-use crate::{middleware::auth::{AuthAdmin, AuthUser}, models::{project::{CategoryCreate, CategoryUpdate, ProjectCreate, ProjectParticipantUpdate, ProjectQueryParams, ProjectUpdate}, review::ReviewReq}, service::project::ProjectService, utils::{request::{ValidatedJson, ValidatedPath}, response::{ApiError, PaginationMeta, WebResponse}}};
-
-pub async fn find_project_u_hand(
-    uri: Uri,
-    service: ProjectService,
-) -> Result<impl IntoResponse, ApiError> {
-    let res = service.get_all_project_unauth().await.map_err(|e|e.with_path(&uri))?;
-    Ok(WebResponse::ok(&uri, "List projects!", res))
-}
-
-pub async fn find_one_project_u_hand(
-    ValidatedPath(project_id): ValidatedPath<Uuid>,
-    uri: Uri,
-    service: ProjectService,
-) -> Result<impl IntoResponse, ApiError> {
-    let res = service.get_one_project_unauth(project_id).await.map_err(|e|e.with_path(&uri))?;
-    Ok(WebResponse::ok(&uri, "Success!", res))
-}
-
-pub async fn find_user_project_u_hand(
-    ValidatedPath(user_id): ValidatedPath<Uuid>,
-    uri: Uri,
-    service: ProjectService,
-) -> Result<impl IntoResponse, ApiError> {
-    let res = service.get_user_project_unauth(user_id).await.map_err(|e|e.with_path(&uri))?;
-    Ok(WebResponse::ok(&uri, "Success!", res))
-}
+use crate::{middleware::auth::{AuthAdmin, AuthUser}, models::{project::{CategoryCreate, CategoryUpdate, ProjectCreate, ProjectParticipantUpdate, ProjectQueryParams, ProjectUpdate, ProjectUserQuery}, review::ReviewReq}, service::project::ProjectService, utils::{request::{ValidatedJson, ValidatedPath}, response::{ApiError, PaginationMeta, WebResponse}}};
 
 pub async fn find_project_hand(
     Query(query): Query<ProjectQueryParams>,
@@ -69,13 +43,26 @@ pub async fn find_my_project_hand(
 
 pub async fn find_user_project_hand(
     ValidatedPath(user_id): ValidatedPath<Uuid>,
+    Query(query): Query<ProjectUserQuery>,
     uri: Uri,
     service: ProjectService,
 ) -> Result<impl IntoResponse, ApiError> {
-    let res = service.get_user_project(user_id).await.map_err(|e|e.with_path(&uri))?;
-    Ok(WebResponse::ok(&uri, "Success!", res))
-}
+    let res = match query.sort.as_deref() {
+        Some("uploaded") => service.get_user_project_uploaded(user_id).await,
+        Some("pending") => service.get_user_project_applyed(user_id, "pending".to_string()).await,
+        Some("accepted") => service.get_user_project_applyed(user_id, "accepted".to_string()).await,
+        Some("rejected") => service.get_user_project_applyed(user_id, "rejected".to_string()).await,
+        _ => service.get_user_project(user_id).await,
+    }
+    .map_err(|e| e.with_path(&uri))?;
 
+    let message = match query.sort.as_deref() {
+        Some(status) => format!("Result for '{status}'"),
+        None => "All project retrieved".to_string(),
+    };
+
+    Ok(WebResponse::ok(&uri, &message, res))
+}
 
 pub async fn create_project_hand(
     uri: Uri,

@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use serde_json::Value;
 use uuid::Uuid;
+use sqlx::types::Json;
 
 use crate::models::user::UserProfile;
 
@@ -13,7 +14,8 @@ pub enum ProjectStatus {
     DONE,
     HIRING,
     PENDING,
-    CANCEL
+    CANCEL,
+    ONGOING
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
@@ -25,7 +27,7 @@ pub enum ProjectParticipantStatus {
     REJECTED
 }
 
-#[derive(Debug, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Category {
     pub id: i32,
     pub name: String,
@@ -72,6 +74,7 @@ pub struct Project {
     pub owner_rating: f64,
     #[sqlx(default)]
     pub owner_image: Option<String>,
+    pub participant_status: ProjectParticipantStatus,
     pub updated_at: Option<DateTime<Utc>>,
     pub created_at: Option<DateTime<Utc>>,
 }
@@ -86,40 +89,54 @@ impl Project {
 pub struct ProjectRes {
     pub id: Uuid,
     pub name: String,
-    pub address: String,
-    pub participant: String,
     pub status: ProjectStatus,
-    pub descriptions: String,
-    pub requirements: Value,
-    pub distance: i32,
+    #[sqlx(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub participant_status: Option<ProjectParticipantStatus>,
     pub rating: Option<f64>,
-    pub category: String,
+    pub descriptions: String,
     pub slug: String,
-    pub owner: ProjectOwner,
+    pub address: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    #[sqlx(default)]
+    pub distance_meters: Option<f64>,
+    pub max_participant: i32,
+    #[sqlx(default)]
+    pub cur_participant: Option<i64>,
+    pub requirements: Value,
+    #[sqlx(default)]
+    pub hastags: Vec<String>,
+    pub category: Json<Category>,
+    pub owner: Json<ProjectOwner>,
     pub updated_at: Option<DateTime<Utc>>,
     pub created_at: Option<DateTime<Utc>>,
 }
 
 impl ProjectRes {
-    pub fn into_model(project: Project, owner: UserProfile, cur_participant: i32, distance: i32, category_name: String) -> Self {
+    pub fn into_model(project: Project, owner: UserProfile, category: Category) -> Self {
         let project_owner = ProjectOwner { 
             id: owner.id, name: owner.name, rating: owner.rating.unwrap_or(0.0), image: owner.image 
         };
-        let participant = format!("{}/{}", cur_participant, project.max_participant);
 
         Self { 
             id: project.id, 
             name: project.name, 
             address: project.address, 
-            participant, 
             status: project.status, 
             descriptions: project.descriptions, 
             requirements: project.requirements, 
-            distance, 
+            distance_meters: project.distance_meters, 
             rating: project.rating, 
-            category: category_name, 
-            slug: project.slug, 
-            owner: project_owner, 
+            slug: project.slug,
+            latitude: project.latitude,
+            longitude: project.longitude,
+            max_participant: project.max_participant,
+            cur_participant: project.cur_participant,
+            participant_status: Some(project.participant_status),
+            hastags: project.hastags,
+            category: Json(category), 
+            owner: Json(project_owner), 
             updated_at: project.updated_at, 
             created_at: project.created_at 
         }
@@ -208,6 +225,11 @@ pub struct  ProjectQuery {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct  ProjectUserQuery {
+    pub sort: Option<String>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectQueryParams {
     pub q: Option<String>,          // ?q=pembuatan+website+sekolah
     pub sort: Option<String>,       // ?sort=newest atau ?sort=closest
@@ -224,6 +246,6 @@ pub struct ProjectQueryParams {
 #[derive(FromRow)]
 pub struct ProjectPaginationRow {
     #[sqlx(flatten)]
-    pub project: Project,
+    pub project: ProjectRes,
     pub total_items: i64, // Hasil dari COUNT(*) OVER()
 }

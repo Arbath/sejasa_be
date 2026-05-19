@@ -15,7 +15,7 @@ impl ProjectRepository {
     pub async fn search_projects(
         &self,
         params: ProjectQueryParams,
-    ) -> Result<(Vec<Project>, i64), sqlx::Error> { // Return tuple (Data, Total Items)
+    ) -> Result<(Vec<ProjectRes>, i64), sqlx::Error> { // Return tuple (Data, Total Items)
         let page = params.page.unwrap_or(1);
         let limit = params.limit.unwrap_or(10);
         let offset = (page - 1) * limit;
@@ -37,10 +37,17 @@ impl ProjectRepository {
                 p.*, 
                 COALESCE(pc.count_current_participant, 0) AS cur_participant,
                 COALESCE(hl.hastag_names, '{}') AS hastags,
-                c.name AS category_name,
-                u.name AS owner_name,
-                COALESCE(up.rating, 0.0) AS owner_rating,
-                up.image AS owner_image,
+                jsonb_build_object(
+                    'id', c.id,
+                    'name', c.name,
+                    'descriptions', c.descriptions
+                ) AS category,
+                jsonb_build_object(
+                    'id', u.id,
+                    'name', u.name,
+                    'rating', up.rating,
+                    'image', up.image
+                ) AS owner,
                 
                 COUNT(*) OVER() AS total_items
             "#
@@ -136,14 +143,14 @@ impl ProjectRepository {
 
         let total_items = rows.first().map(|r| r.total_items).unwrap_or(0);
         
-        // Vec<ProjectPaginationRow> to Vec<Project>
-        let projects: Vec<Project> = rows.into_iter().map(|r| r.project).collect();
+        // Vec<ProjectPaginationRow> to Vec<ProjectRes>
+        let projects: Vec<ProjectRes> = rows.into_iter().map(|r| r.project).collect();
 
         Ok((projects, total_items))
     }
 
-    pub async fn find_all(&self, latitude: f64, longitude: f64) -> Result<Vec<Project>, sqlx::Error>{
-        sqlx::query_as::<_, Project>(
+    pub async fn find_all(&self, latitude: f64, longitude: f64) -> Result<Vec<ProjectRes>, sqlx::Error>{
+        sqlx::query_as::<_, ProjectRes>(
             r#"
             WITH ParticipantCount AS (
                 SELECT project_id, COUNT(id) AS count_current_participant
@@ -164,10 +171,17 @@ impl ProjectRepository {
                 ) AS distance_meters,
             COALESCE(pc.count_current_participant, 0) AS cur_participant,
             COALESCE(hl.hastag_names, '{}') AS hastags,
-            c.name AS category_name,
-            u.name AS owner_name,
-            up.rating AS owner_rating,
-            up.image AS owner_image
+            jsonb_build_object(
+                'id', c.id,
+                'name', c.name,
+                'descriptions', c.descriptions
+            ) AS category,
+            jsonb_build_object(
+                'id', u.id,
+                'name', u.name,
+                'rating', up.rating,
+                'image', up.image
+            ) AS owner
             FROM projects p
             LEFT JOIN category c ON p.category_id = c.id
             LEFT JOIN users u ON p.user_id = u.id
@@ -182,8 +196,8 @@ impl ProjectRepository {
         .await
     }
 
-    pub async fn find_by_id(&self, project_id: Uuid, latitude: Option<f64>, longitude: Option<f64>) -> Result<Project, sqlx::Error>{
-        sqlx::query_as::<_, Project>(
+    pub async fn find_by_id(&self, project_id: Uuid, latitude: Option<f64>, longitude: Option<f64>) -> Result<ProjectRes, sqlx::Error>{
+        sqlx::query_as::<_, ProjectRes>(
             r#"
             WITH ParticipantCount AS (
                 SELECT project_id, COUNT(id) AS count_current_participant
@@ -204,10 +218,17 @@ impl ProjectRepository {
                 ) AS distance_meters,
                 COALESCE(pc.count_current_participant, 0) AS cur_participant,
                 COALESCE(hl.hastag_names, '{}') AS hastags,
-                c.name AS category_name,
-                u.name AS owner_name,
-                up.rating AS owner_rating,
-                up.image AS owner_image
+                jsonb_build_object(
+                    'id', c.id,
+                    'name', c.name,
+                    'descriptions', c.descriptions
+                ) AS category,
+                jsonb_build_object(
+                    'id', u.id,
+                    'name', u.name,
+                    'rating', up.rating,
+                    'image', up.image
+                ) AS owner
                 FROM projects p
                 LEFT JOIN category c ON p.category_id = c.id
                 LEFT JOIN users u ON p.user_id = u.id
@@ -221,105 +242,6 @@ impl ProjectRepository {
         .bind(longitude)
         .bind(project_id)
         .fetch_one(&self.pool)
-        .await
-    }
-    
-    pub async fn find_by_id_unauth(&self, project_id: Uuid) -> Result<Project, sqlx::Error>{
-        sqlx::query_as::<_, _>(
-            r#"
-            WITH ParticipantCount AS (
-                SELECT project_id, COUNT(id) AS count_current_participant
-                FROM project_participant WHERE status = 'accepted'
-                GROUP BY project_id
-            ),
-            HashtagList AS (
-                SELECT project_id, ARRAY_AGG(name) AS hastag_names
-                FROM hastags
-                GROUP BY project_id
-            )
-            SELECT p.* , 
-                COALESCE(pc.count_current_participant, 0) AS cur_participant,
-                COALESCE(hl.hastag_names, '{}') AS hastags,
-                c.name AS category_name,
-                u.name AS owner_name,
-                up.rating AS owner_rating,
-                up.image AS owner_image
-                FROM projects p
-                LEFT JOIN category c ON p.category_id = c.id
-                LEFT JOIN users u ON p.user_id = u.id
-                LEFT JOIN user_profile up ON p.user_id = up.user_id
-                LEFT JOIN ParticipantCount pc ON p.id = pc.project_id
-                LEFT JOIN HashtagList hl ON p.id = hl.project_id
-                WHERE p.id = $1
-            ORDER BY created_at DESC"#
-        )
-        .bind(project_id)
-        .fetch_one(&self.pool)
-        .await
-    }
-    pub async fn find_by_user_unauth(&self, user_id: Uuid) -> Result<Vec<Project>, sqlx::Error>{
-        sqlx::query_as::<_, _>(
-            r#"
-            WITH ParticipantCount AS (
-                SELECT project_id, COUNT(id) AS count_current_participant
-                FROM project_participant WHERE status = 'accepted'
-                GROUP BY project_id
-            ),
-            HashtagList AS (
-                SELECT project_id, ARRAY_AGG(name) AS hastag_names
-                FROM hastags
-                GROUP BY project_id
-            )
-            SELECT p.* ,
-                COALESCE(pc.count_current_participant, 0) AS cur_participant,
-                COALESCE(hl.hastag_names, '{}') AS hastags,
-                c.name AS category_name,
-                u.name AS owner_name,
-                up.rating AS owner_rating,
-                up.image AS owner_image
-                FROM projects p
-                LEFT JOIN category c ON p.category_id = c.id
-                LEFT JOIN users u ON p.user_id = u.id
-                LEFT JOIN user_profile up ON p.user_id = up.user_id
-                LEFT JOIN ParticipantCount pc ON p.id = pc.project_id
-                LEFT JOIN HashtagList hl ON p.id = hl.project_id
-                WHERE p.user_id = $1
-            ORDER BY created_at DESC"#
-        )
-        .bind(user_id)
-        .fetch_all(&self.pool)
-        .await
-    }
-    pub async fn find_all_unauth(&self) -> Result<Vec<Project>, sqlx::Error>{
-        sqlx::query_as::<_, _>(
-            r#"
-            WITH ParticipantCount AS (
-                SELECT project_id, COUNT(id) AS count_current_participant
-                FROM project_participant WHERE status = 'accepted'
-                GROUP BY project_id
-            ),
-            HashtagList AS (
-                SELECT project_id, ARRAY_AGG(name) AS hastag_names
-                FROM hastags
-                GROUP BY project_id
-            )
-            SELECT
-                p.* ,
-                COALESCE(pc.count_current_participant, 0) AS cur_participant,
-                COALESCE(hl.hastag_names, '{}') AS hastags,
-                c.name AS category_name,
-                u.name AS owner_name,
-                up.rating AS owner_rating,
-                up.image AS owner_image
-                FROM projects p
-                LEFT JOIN category c ON p.category_id = c.id
-                LEFT JOIN users u ON p.user_id = u.id
-                LEFT JOIN user_profile up ON p.user_id = up.user_id
-                LEFT JOIN ParticipantCount pc ON p.id = pc.project_id
-                LEFT JOIN HashtagList hl ON p.id = hl.project_id
-            ORDER BY created_at DESC"#
-        )
-        .fetch_all(&self.pool)
         .await
     }
 
@@ -355,8 +277,59 @@ impl ProjectRepository {
         Ok(status)
     }
     
-    pub async fn find_by_user(&self, user_id: Uuid, latitude: f64, longitude: f64) -> Result<Vec<Project>, sqlx::Error>{
-        sqlx::query_as::<_, Project>(
+    pub async fn find_by_user(&self, user_id: Uuid, latitude: f64, longitude: f64) -> Result<Vec<ProjectRes>, sqlx::Error>{
+        sqlx::query_as::<_, ProjectRes>(
+            r#"
+            WITH ParticipantCount AS (
+                SELECT project_id, COUNT(id) AS count_current_participant
+                FROM project_participant WHERE status = 'accepted'
+                GROUP BY project_id
+            ),
+            HashtagList AS (
+                SELECT project_id, ARRAY_AGG(name) AS hastag_names
+                FROM hastags
+                GROUP BY project_id
+            )
+            SELECT DISTINCT
+                p.* ,(
+                    6371000 * acos(
+                        cos(radians($1)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians($2)) + 
+                        sin(radians($1)) * sin(radians(p.latitude))
+                    )
+                ) AS distance_meters,
+                COALESCE(pc.count_current_participant, 0) AS cur_participant,
+                COALESCE(hl.hastag_names, '{}') AS hastags,
+                pp.status AS participant_status,
+            jsonb_build_object(
+                'id', c.id,
+                'name', c.name,
+                'descriptions', c.descriptions
+            ) AS category,
+            jsonb_build_object(
+                'id', u.id,
+                'name', u.name,
+                'rating', up.rating,
+                'image', up.image
+            ) AS owner
+                FROM projects p
+                LEFT JOIN category c ON p.category_id = c.id
+                LEFT JOIN users u ON p.user_id = u.id
+                LEFT JOIN user_profile up ON p.user_id = up.user_id
+                LEFT JOIN ParticipantCount pc ON p.id = pc.project_id
+                LEFT JOIN HashtagList hl ON p.id = hl.project_id
+                LEFT JOIN project_participant pp ON p.id = pp.project_id
+                WHERE p.user_id = $3 OR pp.user_id = $3
+            "#
+        )
+        .bind(latitude)
+        .bind(longitude)
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn find_by_user_uploaded(&self, user_id: Uuid, latitude: f64, longitude: f64) -> Result<Vec<ProjectRes>, sqlx::Error>{
+        sqlx::query_as::<_, ProjectRes>(
             r#"
             WITH ParticipantCount AS (
                 SELECT project_id, COUNT(id) AS count_current_participant
@@ -377,10 +350,17 @@ impl ProjectRepository {
                 ) AS distance_meters,
                 COALESCE(pc.count_current_participant, 0) AS cur_participant,
                 COALESCE(hl.hastag_names, '{}') AS hastags,
-                c.name AS category_name,
-                u.name AS owner_name,
-                up.rating AS owner_rating,
-                up.image AS owner_image
+            jsonb_build_object(
+                'id', c.id,
+                'name', c.name,
+                'descriptions', c.descriptions
+            ) AS category,
+            jsonb_build_object(
+                'id', u.id,
+                'name', u.name,
+                'rating', up.rating,
+                'image', up.image
+            ) AS owner
                 FROM projects p
                 LEFT JOIN category c ON p.category_id = c.id
                 LEFT JOIN users u ON p.user_id = u.id
@@ -393,6 +373,58 @@ impl ProjectRepository {
         .bind(latitude)
         .bind(longitude)
         .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn find_by_user_applyed(&self, user_id: Uuid, latitude: f64, longitude: f64, status: String) -> Result<Vec<ProjectRes>, sqlx::Error>{
+        sqlx::query_as::<_, ProjectRes>(
+            r#"
+            WITH ParticipantCount AS (
+                SELECT project_id, COUNT(id) AS count_current_participant
+                FROM project_participant WHERE status = 'accepted'
+                GROUP BY project_id
+            ),
+            HashtagList AS (
+                SELECT project_id, ARRAY_AGG(name) AS hastag_names
+                FROM hastags
+                GROUP BY project_id
+            )
+            SELECT 
+                p.* ,(
+                    6371000 * acos(
+                        cos(radians($1)) * cos(radians(p.latitude)) * cos(radians(p.longitude) - radians($2)) + 
+                        sin(radians($1)) * sin(radians(p.latitude))
+                    )
+                ) AS distance_meters,
+                COALESCE(pc.count_current_participant, 0) AS cur_participant,
+                COALESCE(hl.hastag_names, '{}') AS hastags,
+                pp.status AS participant_status,
+            jsonb_build_object(
+                'id', c.id,
+                'name', c.name,
+                'descriptions', c.descriptions
+            ) AS category,
+            jsonb_build_object(
+                'id', u.id,
+                'name', u.name,
+                'rating', up.rating,
+                'image', up.image
+            ) AS owner
+                FROM projects p
+                LEFT JOIN category c ON p.category_id = c.id
+                LEFT JOIN users u ON p.user_id = u.id
+                LEFT JOIN user_profile up ON p.user_id = up.user_id
+                LEFT JOIN ParticipantCount pc ON p.id = pc.project_id
+                LEFT JOIN HashtagList hl ON p.id = hl.project_id
+                JOIN project_participant pp ON p.id = pp.project_id
+                WHERE pp.user_id = $3 AND pp.status = $4
+            "#
+        )
+        .bind(latitude)
+        .bind(longitude)
+        .bind(user_id)
+        .bind(status)
         .fetch_all(&self.pool)
         .await
     }
