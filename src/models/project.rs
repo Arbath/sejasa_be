@@ -74,7 +74,6 @@ pub struct Project {
     pub owner_rating: f64,
     #[sqlx(default)]
     pub owner_image: Option<String>,
-    pub participant_status: ProjectParticipantStatus,
     pub updated_at: Option<DateTime<Utc>>,
     pub created_at: Option<DateTime<Utc>>,
 }
@@ -114,7 +113,7 @@ pub struct ProjectRes {
 }
 
 impl ProjectRes {
-    pub fn into_model(project: Project, owner: UserProfile, category: Category) -> Self {
+    pub fn into_model(project: Project, owner: UserProfile, category: Category, participant_status: Option<ProjectParticipantStatus>) -> Self {
         let project_owner = ProjectOwner { 
             id: owner.id, name: owner.name, rating: owner.rating.unwrap_or(0.0), image: owner.image 
         };
@@ -133,7 +132,7 @@ impl ProjectRes {
             longitude: project.longitude,
             max_participant: project.max_participant,
             cur_participant: project.cur_participant,
-            participant_status: Some(project.participant_status),
+            participant_status: participant_status,
             hastags: project.hastags,
             category: Json(category), 
             owner: Json(project_owner), 
