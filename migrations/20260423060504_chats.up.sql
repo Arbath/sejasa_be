@@ -8,6 +8,7 @@ CREATE TABLE chats (
 CREATE TABLE detail_chat (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
     chat_id UUID REFERENCES chats(id) ON DELETE CASCADE,
+    sender_id UUID REFERENCES users(id) ON DELETE CASCADE,
     content TEXT,
     file TEXT,
     is_read BOOLEAN DEFAULT FALSE,
