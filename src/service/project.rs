@@ -1,7 +1,7 @@
 use axum::extract::{FromRef, FromRequestParts};
 use uuid::Uuid;
 
-use crate::{models::{project::{Category, CategoryCreate, CategoryUpdate, Project, ProjectCreate, ProjectParticipant, ProjectParticipantCreate, ProjectParticipantStatus, ProjectParticipantUpdate, ProjectQueryParams, ProjectRes, ProjectStatus, ProjectUpdate}, review::{Review, ReviewReq}, user::User}, repository::{project::{CategoryRepository, HastagsRepository, ParticipantRepository, ProjectRepository}, review::ReviewRepository, user::UserRepository}, state::AppState, utils::response::AppError};
+use crate::{models::{project::{Category, CategoryCreate, CategoryUpdate, Project, ProjectCreate, ProjectParticipant, ProjectParticipantCreate, ProjectParticipantStatus, ProjectParticipantUpdate, ProjectQueryParams, ProjectRes, ProjectStatus, ProjectUpdate}, review::{Review, ReviewReq}, user::User}, repository::{chat::ChatRepository, project::{CategoryRepository, HastagsRepository, ParticipantRepository, ProjectRepository}, review::ReviewRepository, user::UserRepository}, state::AppState, utils::response::AppError};
 
 #[allow(dead_code)]
 pub struct ProjectService {
@@ -11,6 +11,7 @@ pub struct ProjectService {
     hastags_repo: HastagsRepository,
     participant_repo: ParticipantRepository,
     review_repo: ReviewRepository,
+    chat_repo: ChatRepository,
     state: AppState
 }
 
@@ -22,8 +23,9 @@ impl ProjectService {
         let hastags_repo = HastagsRepository::new(state.database.clone());
         let participant_repo = ParticipantRepository::new(state.database.clone());
         let review_repo = ReviewRepository::new(state.database.clone());
+        let chat_repo = ChatRepository::new(state.database.clone());
 
-        Self { user_repo, project_repo, category_repo, hastags_repo, participant_repo, review_repo, state }
+        Self { user_repo, project_repo, category_repo, hastags_repo, participant_repo, review_repo, chat_repo, state }
     }
     
     pub async fn get_user_project(&self, user_id: Uuid) -> Result<Vec<ProjectRes>, AppError> {
@@ -163,6 +165,7 @@ impl ProjectService {
             status: status
         };
         let _ = self.participant_repo.create(data).await?;
+        let _ = self.chat_repo.create_chats(user.id, project_id).await?;
         let user_profile = self.user_repo.find_user_profile(&user.id).await?;
         let project =  self.project_repo.find_by_id(project_id, Some(user_profile.latitude), Some(user_profile.longitude)).await?;
         Ok(project)

@@ -1,14 +1,9 @@
 use axum::{Router, routing::get};
-use crate::{handler::chat::{test, ws_hand, ws_chat}, state::AppState};
-
-async fn home() -> &'static str {
-    "Teknohole IoT service is running..."
-}
+use crate::{handler::chat::*, state::AppState};
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/", get(home))
-        .route("/user", get(test))
-        .route("/ws", get(ws_hand))
-        .route("/ws/chat", get(ws_chat))
+        .route("/ws/chat/{chat_id}", get(ws_chat))
+        .route("/chat", get(find_chat_user_hand))
+        .route("/project/{project_id}/chat", get(find_chat_project_hand))
 }

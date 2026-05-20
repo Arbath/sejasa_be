@@ -1,11 +1,13 @@
-use std::{collections::HashMap, sync::{Arc, atomic::AtomicUsize}};
+use std::{collections::HashMap, sync::Arc};
 use axum::extract::ws::Message;
 use sqlx::PgPool;
 use tokio::sync::{RwLock, mpsc};
 use tower_http::cors::CorsLayer;
+use uuid::Uuid;
 use crate::config::Config;
 
-type Users = Arc<RwLock<HashMap<usize, mpsc::Sender<Message>>>>;
+type Users = Arc<RwLock<HashMap<Uuid, mpsc::Sender<Message>>>>;
+type Rooms = Arc<RwLock<HashMap<Uuid, HashMap<Uuid, mpsc::Sender<Message>>>>>;
 
 #[derive(Clone)]
 pub struct AppConfig {
@@ -21,7 +23,7 @@ pub struct AppState {
     pub app_config: Arc<AppConfig>,
     pub database: PgPool,
     pub users: Users,
-    pub n_user_id: Arc<AtomicUsize>,
+    pub rooms: Rooms,
 }
 
 impl AppState {
@@ -38,7 +40,7 @@ impl AppState {
             app_config,
             database: pool,
             users: Arc::new(RwLock::new(HashMap::new())),
-            n_user_id: Arc::new(AtomicUsize::new(1)),
+            rooms: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 }

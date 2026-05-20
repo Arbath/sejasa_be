@@ -1,5 +1,5 @@
 use axum::{Router, extract::DefaultBodyLimit, routing::{get, post}};
-use crate::{handler::chat::{test, ws_chat, ws_hand}, middleware::auth::AuthUser, state::AppState, utils::response::{ApiError, AppError, WebResponse}};
+use crate::{middleware::auth::AuthUser, state::AppState, utils::response::{ApiError, AppError, WebResponse}};
 
 use axum::{extract::{Multipart}, response::IntoResponse};
 use http::Uri;
@@ -15,9 +15,6 @@ async fn home() -> &'static str {
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/", get(home))
-        .route("/user", get(test))
-        .route("/ws", get(ws_hand))
-        .route("/ws/chat", get(ws_chat))
         .route("/api/upload", post(upload_file_handler)).layer(DefaultBodyLimit::max(10 * 1024 * 1024))
 }
 

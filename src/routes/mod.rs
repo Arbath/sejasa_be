@@ -31,9 +31,9 @@ pub fn create_app(state: AppState) -> Router {
         .nest("/api",project::routes()
             .layer(uncors.clone())
         )
-        // .nest("/api",webhook::routes()
-        //     .layer(uncors.clone())
-        // )
+        .nest("/api",chat::routes()
+            .layer(uncors.clone())
+        )
 
         .with_state(state)
 
