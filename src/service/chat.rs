@@ -4,7 +4,7 @@ use tokio::sync::mpsc::{self, error::TrySendError};
 use futures_util::{SinkExt, stream::StreamExt};
 use uuid::Uuid;
 
-use crate::{models::{chat::{Chat, ChatMessage, WsEvent}, user::User}, repository::{chat::ChatRepository, project::ProjectRepository}, state::AppState, utils::response::AppError};
+use crate::{models::{chat::{ChatMessage, ChatPreview, WsEvent}, user::User}, repository::{chat::ChatRepository, project::ProjectRepository}, state::AppState, utils::response::AppError};
 
 #[allow(dead_code)]
 pub struct ChatService {
@@ -30,6 +30,8 @@ impl ChatService {
             if let Ok(json) = serde_json::to_string(&event) {
                 let _ = sender.send(Message::Text(json.into())).await;
             }
+
+            let _ = self.chat_repo.update_read_bulk(chat_id, user.id).await;
         }
 
         // SETUP MPSC & JOIN KE DALAM ROOM
@@ -146,18 +148,18 @@ impl ChatService {
         send_task.abort();
     }
 
-    pub async fn get_chat_user(&self, user: User) -> Result<Vec<Chat>, AppError>{
-        let q = self.chat_repo.find_chat_user(user.id).await?;
+    pub async fn get_chat_user(&self, user: User) -> Result<Vec<ChatPreview>, AppError>{
+        let q = self.chat_repo.chat_user_preview(user.id).await?;
         Ok(q)
     }
 
-    pub async fn get_chat_project(&self, project_id: Uuid, user: User) -> Result<Vec<Chat>, AppError>{
+    pub async fn get_chat_project(&self, project_id: Uuid, user: User) -> Result<Vec<ChatPreview>, AppError>{
         let is_owner = self.project_repo.check_project_ownership(project_id, user.id).await?;
         if !is_owner {
             return Err(AppError::Forbidden("Anda tidak memiliki akses ke project ini".to_string()));
         }
 
-        let q = self.chat_repo.find_chat_project(project_id).await?;
+        let q = self.chat_repo.chat_project_preview(project_id).await?;
         Ok(q)
     }
 

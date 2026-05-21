@@ -5,7 +5,7 @@ use serde_json::Value;
 use uuid::Uuid;
 use sqlx::types::Json;
 
-use crate::models::user::UserProfile;
+use crate::models::user::{UserPrev, UserProfile};
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -204,6 +204,14 @@ pub struct ProjectParticipant {
     pub user_id: Uuid,
     pub project_id: Uuid,
     pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ProjectParticipantPrev {
+    pub id: i32,
+    pub project_id: Uuid,
+    pub user: Json<UserPrev>,
+    pub status: ProjectParticipantStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

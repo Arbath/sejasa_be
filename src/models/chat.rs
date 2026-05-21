@@ -1,7 +1,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::prelude::FromRow;
+use sqlx::{FromRow, types::Json};
 use uuid::Uuid;
+
+use crate::models::user::UserPrev;
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Chat {
@@ -24,6 +26,17 @@ pub struct ChatDetail {
 pub struct ChatMessage {
     pub content: String,
     pub file: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ChatPreview {
+    pub id: Uuid,
+    pub project_id: Uuid,
+    pub user: Json<UserPrev>,
+    pub title: String,
+    pub body: String,
+    pub unread_msg: i32,
+    pub timestamp: Option<DateTime<Utc>>
 }
 
 #[derive(Debug, Serialize)]

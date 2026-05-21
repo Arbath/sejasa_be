@@ -1,7 +1,7 @@
 use axum::extract::{FromRef, FromRequestParts};
 use uuid::Uuid;
 
-use crate::{models::{project::{Category, CategoryCreate, CategoryUpdate, Project, ProjectCreate, ProjectParticipant, ProjectParticipantCreate, ProjectParticipantStatus, ProjectParticipantUpdate, ProjectQueryParams, ProjectRes, ProjectStatus, ProjectUpdate}, review::{Review, ReviewReq}, user::User}, repository::{chat::ChatRepository, project::{CategoryRepository, HastagsRepository, ParticipantRepository, ProjectRepository}, review::ReviewRepository, user::UserRepository}, state::AppState, utils::response::AppError};
+use crate::{models::{project::{Category, CategoryCreate, CategoryUpdate, Project, ProjectCreate, ProjectParticipant, ProjectParticipantCreate, ProjectParticipantPrev, ProjectParticipantStatus, ProjectParticipantUpdate, ProjectQueryParams, ProjectRes, ProjectStatus, ProjectUpdate}, review::{Review, ReviewReq}, user::User}, repository::{chat::ChatRepository, project::{CategoryRepository, HastagsRepository, ParticipantRepository, ProjectRepository}, review::ReviewRepository, user::UserRepository}, state::AppState, utils::response::AppError};
 
 #[allow(dead_code)]
 pub struct ProjectService {
@@ -171,7 +171,7 @@ impl ProjectService {
         Ok(project)
     }
 
-    pub async fn list_participant_project(&self, project_id: Uuid) -> Result<Vec<ProjectParticipant>, AppError> {
+    pub async fn list_participant_project(&self, project_id: Uuid) -> Result<Vec<ProjectParticipantPrev>, AppError> {
         let q = self.participant_repo.find_all(project_id).await?;
         Ok(q)
     }

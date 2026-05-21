@@ -80,4 +80,83 @@ impl ChatRepository {
         .await
     }
 
+    pub async fn chat_user_preview(&self, user_id: Uuid) -> Result<Vec<ChatPreview>, sqlx::Error> {
+        sqlx::query_as::<_,ChatPreview>(
+            r#"SELECT DISTINCT ON (c.id) 
+            c.id,
+            c.project_id,
+            jsonb_build_object(
+                'id', c.user_id,
+                'name', u.name,
+                'image', p.image
+            ) AS user,
+            COALESCE(u.name, '') AS title,
+            COALESCE(cd.content, '') AS body,
+            (
+                SELECT COALESCE(COUNT(*), 0)::int4 
+                FROM detail_chat 
+                WHERE chat_id = c.id 
+                AND is_read = false 
+                AND sender_id != $1
+            ) AS unread_msg,
+            cd.send_at AS timestamp
+            FROM chats c
+            LEFT JOIN users u ON c.user_id = u.id
+            LEFT JOIN user_profile p ON c.user_id = p.user_id
+            LEFT JOIN detail_chat cd ON c.id = cd.chat_id
+            WHERE c.user_id = $1 ORDER BY c.id, cd.send_at DESC"#
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+    
+    pub async fn chat_project_preview(&self, project_id: Uuid) -> Result<Vec<ChatPreview>, sqlx::Error> {
+        sqlx::query_as::<_,ChatPreview>(
+            r#"SELECT DISTINCT ON (c.id) 
+            c.id,
+            c.project_id,
+            jsonb_build_object(
+                'id', c.user_id,
+                'name', u.name,
+                'image', p.image
+            ) AS user,
+            COALESCE(u.name, '') AS title,
+            COALESCE(cd.content, '') AS body,
+            (
+                SELECT COALESCE(COUNT(*), 0)::int4 
+                FROM detail_chat 
+                WHERE chat_id = c.id 
+                AND is_read = false 
+                AND sender_id != $1
+            ) AS unread_msg,
+            cd.send_at AS timestamp
+            FROM chats c
+            LEFT JOIN users u ON c.user_id = u.id
+            LEFT JOIN user_profile p ON c.user_id = p.user_id
+            LEFT JOIN detail_chat cd ON c.id = cd.chat_id
+            WHERE c.project_id = $1 ORDER BY c.id, cd.send_at DESC"#
+        )
+        .bind(project_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn update_read_bulk(&self, chat_id: Uuid, current_user_id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            UPDATE detail_chat 
+            SET is_read = true 
+            WHERE chat_id = $1 
+              AND sender_id != $2
+              AND is_read = false
+            "#
+        )
+        .bind(chat_id)
+        .bind(current_user_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
 }

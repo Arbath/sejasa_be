@@ -670,9 +670,20 @@ impl ParticipantRepository {
         Self { pool }
     }
 
-    pub async fn find_all(&self, project_id: Uuid) -> Result<Vec<ProjectParticipant>, sqlx::Error> {
-        sqlx::query_as::<_, ProjectParticipant>(
-            r#"SELECT * FROM project_participant WHERE project_id = $1"#
+    pub async fn find_all(&self, project_id: Uuid) -> Result<Vec<ProjectParticipantPrev>, sqlx::Error> {
+        sqlx::query_as::<_, ProjectParticipantPrev>(
+            r#"SELECT pp.* ,
+            jsonb_build_object(
+                    'id', u.id,
+                    'name', u.name,
+                    'image', up.image
+                ) AS user
+            FROM project_participant pp
+            LEFT JOIN users u ON pp.user_id = u.id
+            LEFT JOIN user_profile up ON pp.user_id = up.user_id
+            WHERE pp.project_id = $1
+            ORDER BY pp.id DESC
+            "#
         )
         .bind(project_id)
         .fetch_all(&self.pool)

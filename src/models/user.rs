@@ -169,3 +169,10 @@ pub struct  SkillQuery {
 pub struct  UserQuery {
     pub name: Option<String>
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct UserPrev {
+    pub id: Uuid,
+    pub name: String,
+    pub image: Option<String>,
+}
