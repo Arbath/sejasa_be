@@ -103,6 +103,7 @@ pub struct ProjectRes {
     pub max_participant: i32,
     #[sqlx(default)]
     pub cur_participant: Option<i64>,
+    pub cur_participant_accepted: Option<i64>,
     pub requirements: Value,
     #[sqlx(default)]
     pub hastags: Vec<String>,
@@ -132,6 +133,7 @@ impl ProjectRes {
             longitude: project.longitude,
             max_participant: project.max_participant,
             cur_participant: project.cur_participant,
+            cur_participant_accepted: None,
             participant_status: participant_status,
             hastags: project.hastags,
             category: Json(category), 

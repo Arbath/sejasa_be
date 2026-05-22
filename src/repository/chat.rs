@@ -52,12 +52,13 @@ impl ChatRepository {
         .await
     }
     
-    pub async fn find_chat_project(&self, project_id: Uuid) -> Result<Vec<Chat>, sqlx::Error> {
+    pub async fn find_chat_project(&self, project_id: Uuid, user_id: Uuid) -> Result<Chat, sqlx::Error> {
         sqlx::query_as::<_, Chat>(
-            r#"SELECT * FROM chats WHERE project_id = $1"#
+            r#"SELECT * FROM chats WHERE project_id = $1 AND user_id = $2"#
         )
         .bind(project_id)
-        .fetch_all(&self.pool)
+        .bind(user_id)
+        .fetch_one(&self.pool)
         .await
     }
 
@@ -88,7 +89,7 @@ impl ChatRepository {
             jsonb_build_object(
                 'id', c.user_id,
                 'name', u.name,
-                'image', p.image
+                'image', up.image
             ) AS user,
             COALESCE(u.name, '') AS title,
             COALESCE(cd.content, '') AS body,
@@ -101,8 +102,9 @@ impl ChatRepository {
             ) AS unread_msg,
             cd.send_at AS timestamp
             FROM chats c
-            LEFT JOIN users u ON c.user_id = u.id
-            LEFT JOIN user_profile p ON c.user_id = p.user_id
+            LEFT JOIN projects p ON c.project_id = p.id
+            LEFT JOIN users u ON p.user_id = u.id
+            LEFT JOIN user_profile up ON c.user_id = up.user_id
             LEFT JOIN detail_chat cd ON c.id = cd.chat_id
             WHERE c.user_id = $1 ORDER BY c.id, cd.send_at DESC"#
         )
@@ -119,7 +121,7 @@ impl ChatRepository {
             jsonb_build_object(
                 'id', c.user_id,
                 'name', u.name,
-                'image', p.image
+                'image', up.image
             ) AS user,
             COALESCE(u.name, '') AS title,
             COALESCE(cd.content, '') AS body,
@@ -130,10 +132,12 @@ impl ChatRepository {
                 AND is_read = false 
                 AND sender_id != $1
             ) AS unread_msg,
-            cd.send_at AS timestamp
+            cd.send_at AS timestamp,
+            pp.status AS participant_status
             FROM chats c
             LEFT JOIN users u ON c.user_id = u.id
-            LEFT JOIN user_profile p ON c.user_id = p.user_id
+            LEFT JOIN project_participant pp ON c.project_id = pp.project_id AND c.user_id = pp.user_id
+            LEFT JOIN user_profile up ON c.user_id = up.user_id
             LEFT JOIN detail_chat cd ON c.id = cd.chat_id
             WHERE c.project_id = $1 ORDER BY c.id, cd.send_at DESC"#
         )

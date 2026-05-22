@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, types::Json};
 use uuid::Uuid;
 
-use crate::models::user::UserPrev;
+use crate::models::{project::ProjectParticipantStatus, user::UserPrev};
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Chat {
@@ -36,6 +36,9 @@ pub struct ChatPreview {
     pub title: String,
     pub body: String,
     pub unread_msg: i32,
+    #[sqlx(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub participant_status: Option<ProjectParticipantStatus>,
     pub timestamp: Option<DateTime<Utc>>
 }
 

@@ -1,7 +1,7 @@
 use axum::extract::{FromRef, FromRequestParts};
 use uuid::Uuid;
 
-use crate::{models::{project::{Category, CategoryCreate, CategoryUpdate, Project, ProjectCreate, ProjectParticipant, ProjectParticipantCreate, ProjectParticipantPrev, ProjectParticipantStatus, ProjectParticipantUpdate, ProjectQueryParams, ProjectRes, ProjectStatus, ProjectUpdate}, review::{Review, ReviewReq}, user::User}, repository::{chat::ChatRepository, project::{CategoryRepository, HastagsRepository, ParticipantRepository, ProjectRepository}, review::ReviewRepository, user::UserRepository}, state::AppState, utils::response::AppError};
+use crate::{models::{chat::{Chat}, project::{Category, CategoryCreate, CategoryUpdate, Project, ProjectCreate, ProjectParticipant, ProjectParticipantCreate, ProjectParticipantPrev, ProjectParticipantStatus, ProjectParticipantUpdate, ProjectQueryParams, ProjectRes, ProjectStatus, ProjectUpdate}, review::{Review, ReviewReq}, user::User}, repository::{chat::ChatRepository, project::{CategoryRepository, HastagsRepository, ParticipantRepository, ProjectRepository}, review::ReviewRepository, user::UserRepository}, state::AppState, utils::response::AppError};
 
 #[allow(dead_code)]
 pub struct ProjectService {
@@ -149,7 +149,7 @@ impl ProjectService {
         Ok(list_hastags)
     }
 
-    pub async fn apply_project(&self, project_id: Uuid, user: User) -> Result<ProjectRes, AppError> {
+    pub async fn apply_project(&self, project_id: Uuid, user: User) -> Result<Chat, AppError> {
         let is_owner = self.project_repo.check_project_ownership(project_id, user.id).await?;
         if is_owner {
             return Err(AppError::Forbidden("Anda tidak bisa apply project milik Anda!".to_string()));
@@ -158,6 +158,11 @@ impl ProjectService {
         if project_status != ProjectStatus::HIRING {
             return Err(AppError::Forbidden("Proyek tidak sedang mencari partisipan!".to_string()));
         }
+        
+        let is_participant = self.participant_repo.check_participant(project_id, user.id).await?;
+        if is_participant {
+            return Err(AppError::Forbidden("Anda sudah apply project ini".to_string()));
+        }
         let status = ProjectParticipantStatus::PENDING;
         let data = ProjectParticipantCreate {
             user_id: user.id,
@@ -165,10 +170,8 @@ impl ProjectService {
             status: status
         };
         let _ = self.participant_repo.create(data).await?;
-        let _ = self.chat_repo.create_chats(user.id, project_id).await?;
-        let user_profile = self.user_repo.find_user_profile(&user.id).await?;
-        let project =  self.project_repo.find_by_id(project_id, Some(user_profile.latitude), Some(user_profile.longitude)).await?;
-        Ok(project)
+        let chat = self.chat_repo.create_chats(user.id, project_id).await?;
+        Ok(chat)
     }
 
     pub async fn list_participant_project(&self, project_id: Uuid) -> Result<Vec<ProjectParticipantPrev>, AppError> {
@@ -219,7 +222,7 @@ impl ProjectService {
     }
 
     pub async fn review_project(&self, project_id: Uuid, data: ReviewReq, user: User) -> Result<Review, AppError> {
-        let is_participant = self.participant_repo.check_participant_status(project_id, user.id).await?;
+        let is_participant = self.participant_repo.check_participant_status(project_id, user.id, ProjectParticipantStatus::ACCEPTED).await?;
         if !is_participant {
             return Err(AppError::Forbidden("Anda bukan participant project ini".to_string()));
         }
