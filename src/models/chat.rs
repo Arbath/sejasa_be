@@ -16,6 +16,7 @@ pub struct Chat {
 pub struct ChatDetail {
     pub id: Uuid,
     pub chat_id: Uuid,
+    pub sender_id: Uuid,
     pub content: String,
     pub file: Option<String>,
     pub is_read: bool,
