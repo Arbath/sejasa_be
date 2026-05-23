@@ -186,13 +186,13 @@ pub async fn list_participant_hand(
 }
 
 pub async fn apply_participant_hand(
-    ValidatedPath((project_id, project_part_id)): ValidatedPath<(Uuid, i32)>,
+    ValidatedPath((project_id, participant_id)): ValidatedPath<(Uuid, Uuid)>,
     uri: Uri,
     AuthUser(user) : AuthUser,
     service: ProjectService,
     ValidatedJson(req): ValidatedJson<ProjectParticipantUpdate>
 ) -> Result<impl IntoResponse, ApiError> {
-    let res = service.apply_participant_project( project_id, project_part_id, user, req).await.map_err(|e|e.with_path(&uri))?;
+    let res = service.apply_participant_project( project_id, participant_id, user, req).await.map_err(|e|e.with_path(&uri))?;
     Ok(WebResponse::ok(&uri, "Participant updated!", res))
 }
 

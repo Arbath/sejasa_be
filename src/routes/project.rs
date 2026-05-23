@@ -6,7 +6,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/project/{project_id}/apply", post(apply_project_hand))
         .route("/project/{project_id}/participant", get(list_participant_hand))
-        .route("/project/{project_id}/participant/{project_part_id}", post(apply_participant_hand))
+        .route("/project/{project_id}/participant/{participant_id}", post(apply_participant_hand))
         .route("/project/{project_id}/review", post(review_project_hand))
         .route("/project/{project_id}/participant/{participant_id}/review", post(review_participant_hand))
         .route("/project/{project_id}/participant/review", post(review_all_participant_hand))

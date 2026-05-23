@@ -719,12 +719,13 @@ impl ParticipantRepository {
         .await
     }
 
-    pub async fn update_status(&self, data: ProjectParticipantUpdate, project_part_id: i32) -> Result<ProjectParticipant, sqlx::Error> {
+    pub async fn update_status(&self,project_id: Uuid, participant_id: Uuid, data: ProjectParticipantUpdate) -> Result<ProjectParticipant, sqlx::Error> {
         sqlx::query_as::<_, ProjectParticipant>(
-            r#"UPDATE project_participant SET status = COALESCE($1, status) WHERE id = $2 RETURNING *"#
+            r#"UPDATE project_participant SET status = COALESCE($3, status) WHERE project_id = $1 AND user_id = $2 RETURNING *"#
         )
+        .bind(project_id)
+        .bind(participant_id)
         .bind(data.status)
-        .bind(project_part_id)
         .fetch_one(&self.pool)
         .await
     }

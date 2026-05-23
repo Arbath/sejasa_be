@@ -179,12 +179,12 @@ impl ProjectService {
         Ok(q)
     }
     
-    pub async fn apply_participant_project(&self, project_id: Uuid, project_part_id: i32, user: User, data: ProjectParticipantUpdate) -> Result<ProjectParticipant, AppError> {
+    pub async fn apply_participant_project(&self, project_id: Uuid, participant_id: Uuid, user: User, data: ProjectParticipantUpdate) -> Result<ProjectParticipant, AppError> {
         let is_owner = self.project_repo.check_project_ownership(project_id, user.id).await?;
         if !is_owner {
             return Err(AppError::Forbidden("Anda tidak memiliki akses ke project ini".to_string()));
         }
-        let q = self.participant_repo.update_status(data, project_part_id).await?;
+        let q = self.participant_repo.update_status(project_id, participant_id, data).await?;
         Ok(q)
     }
 
