@@ -113,7 +113,7 @@ impl ChatRepository {
         .await
     }
     
-    pub async fn chat_project_preview(&self, project_id: Uuid) -> Result<Vec<ChatPreview>, sqlx::Error> {
+    pub async fn chat_project_preview(&self, current_user_id: Uuid, project_id: Uuid) -> Result<Vec<ChatPreview>, sqlx::Error> {
         sqlx::query_as::<_,ChatPreview>(
             r#"SELECT DISTINCT ON (c.id) 
             c.id,
@@ -139,8 +139,9 @@ impl ChatRepository {
             LEFT JOIN project_participant pp ON c.project_id = pp.project_id AND c.user_id = pp.user_id
             LEFT JOIN user_profile up ON c.user_id = up.user_id
             LEFT JOIN detail_chat cd ON c.id = cd.chat_id
-            WHERE c.project_id = $1 ORDER BY c.id, cd.send_at DESC"#
+            WHERE c.project_id = $2 ORDER BY c.id, cd.send_at DESC"#
         )
+        .bind(current_user_id)
         .bind(project_id)
         .fetch_all(&self.pool)
         .await

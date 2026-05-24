@@ -159,7 +159,7 @@ impl ChatService {
             return Err(AppError::Forbidden("Anda tidak memiliki akses ke project ini".to_string()));
         }
 
-        let q = self.chat_repo.chat_project_preview(project_id).await?;
+        let q = self.chat_repo.chat_project_preview(user.id, project_id).await?;
         Ok(q)
     }
 
