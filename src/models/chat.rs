@@ -33,6 +33,7 @@ pub struct ChatMessage {
 pub struct ChatPreview {
     pub id: Uuid,
     pub project_id: Uuid,
+    pub project_name: String,
     pub user: Json<UserPrev>,
     pub title: String,
     pub body: String,

@@ -5,7 +5,7 @@ use serde_json::Value;
 use uuid::Uuid;
 use sqlx::types::Json;
 
-use crate::models::user::{UserPrev, UserProfile};
+use crate::models::{user::{UserPrev}};
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -92,6 +92,12 @@ pub struct ProjectRes {
     #[sqlx(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub participant_status: Option<ProjectParticipantStatus>,
+    #[sqlx(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chat_id: Option<Uuid>,
+    #[sqlx(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rating_given: Option<f64>,
     pub rating: Option<f64>,
     pub descriptions: String,
     pub slug: String,
@@ -114,32 +120,9 @@ pub struct ProjectRes {
 }
 
 impl ProjectRes {
-    pub fn into_model(project: Project, owner: UserProfile, category: Category, participant_status: Option<ProjectParticipantStatus>) -> Self {
-        let project_owner = ProjectOwner { 
-            id: owner.id, name: owner.name, rating: owner.rating.unwrap_or(0.0), image: owner.image 
-        };
-
+    pub fn into_model(self, chat_id: Option<Uuid>, participant_status: Option<ProjectParticipantStatus>, rating_given: Option<f64>) -> Self {
         Self { 
-            id: project.id, 
-            name: project.name, 
-            address: project.address, 
-            status: project.status, 
-            descriptions: project.descriptions, 
-            requirements: project.requirements, 
-            distance_meters: project.distance_meters, 
-            rating: project.rating, 
-            slug: project.slug,
-            latitude: project.latitude,
-            longitude: project.longitude,
-            max_participant: project.max_participant,
-            cur_participant: project.cur_participant,
-            cur_participant_accepted: None,
-            participant_status: participant_status,
-            hastags: project.hastags,
-            category: Json(category), 
-            owner: Json(project_owner), 
-            updated_at: project.updated_at, 
-            created_at: project.created_at 
+            participant_status, chat_id, rating_given, ..self
         }
     }
 }
@@ -205,7 +188,7 @@ pub struct ProjectParticipant {
     pub id: i32,
     pub user_id: Uuid,
     pub project_id: Uuid,
-    pub status: String,
+    pub status: ProjectParticipantStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]

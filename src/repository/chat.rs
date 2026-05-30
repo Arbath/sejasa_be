@@ -86,6 +86,7 @@ impl ChatRepository {
             r#"SELECT DISTINCT ON (c.id) 
             c.id,
             c.project_id,
+            p.name AS project_name,
             jsonb_build_object(
                 'id', c.user_id,
                 'name', u.name,
@@ -118,6 +119,7 @@ impl ChatRepository {
             r#"SELECT DISTINCT ON (c.id) 
             c.id,
             c.project_id,
+            p.name AS project_name,
             jsonb_build_object(
                 'id', c.user_id,
                 'name', u.name,
@@ -135,6 +137,7 @@ impl ChatRepository {
             cd.send_at AS timestamp,
             pp.status AS participant_status
             FROM chats c
+            LEFT JOIN projects p ON c.project_id = p.id
             LEFT JOIN users u ON c.user_id = u.id
             LEFT JOIN project_participant pp ON c.project_id = pp.project_id AND c.user_id = pp.user_id
             LEFT JOIN user_profile up ON c.user_id = up.user_id

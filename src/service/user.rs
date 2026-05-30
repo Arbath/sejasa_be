@@ -1,7 +1,7 @@
 use axum::extract::{FromRef, FromRequestParts};
 use uuid::Uuid;
 
-use crate::{models::user::{UpdateProfileReq, User, UserCreate, UserProfileRes, UserReq, UserSkill, UserSkillCreate, UserSkillUpdate}, repository::user::{UserRepository, UserSkillsRepository}, state::AppState, utils::response::AppError};
+use crate::{models::user::{UpdateProfileReq, User, UserCreate, UserProfile, UserProfileRes, UserReq, UserSkill, UserSkillCreate, UserSkillUpdate}, repository::user::{UserRepository, UserSkillsRepository}, state::AppState, utils::response::AppError};
 
 #[allow(dead_code)]
 pub struct UserService {
@@ -18,14 +18,14 @@ impl UserService {
         Self {user_repo, skill_repo, state}
     }
     
-    pub async fn search_user(&self, name: &String) -> Result<Vec<User>, AppError> {
+    pub async fn search_user(&self, name: &String) -> Result<Vec<UserProfile>, AppError> {
         let user = self.user_repo.search_user(&name)
             .await.map_err(|e| AppError::NotFound(format!("User not found! {e}")))?;
 
         Ok(user)
     }
     
-    pub async fn find_all_users(&self) -> Result<Vec<User>, AppError> {
+    pub async fn find_all_users(&self) -> Result<Vec<UserProfile>, AppError> {
         let user = self.user_repo.find_all_users()
             .await.map_err(|e| AppError::NotFound(format!("User not found! {e}")))?;
 

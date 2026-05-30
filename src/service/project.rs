@@ -51,8 +51,26 @@ impl ProjectService {
     
     pub async fn get_one_project(&self, project_id: Uuid, user_id: Uuid) -> Result<ProjectRes, AppError> {
         let user_profile = self.user_repo.find_user_profile(&user_id).await?;
+        let is_related = self.participant_repo.check_participant(project_id, user_id).await?;
+        let (chat_id, participant_status) = if is_related {
+            let chat = self.chat_repo.find_chat_project(project_id, user_id).await?;
+            let participant = self.participant_repo.find_one(project_id, user_id).await?;
+            
+            (Some(chat.id), Some(participant.status))
+        } else {
+            (None, None)
+        };
+        let is_review = self.review_repo.check_project_has_reviewed(project_id, user_id).await?;
+        let rating_given: f64 =  if is_review {
+            let participant_rating = self.review_repo.find_participant_rating(project_id, user_id).await.map_err(|_| Some(0.0));
+
+            participant_rating.map(|r| r.rating).unwrap_or(0.0)
+        } else {
+            0.0
+        };
         let project = self.project_repo.find_by_id(project_id, Some(user_profile.latitude), Some(user_profile.longitude)).await?;
-        Ok(project)
+        let project_res = project.into_model(chat_id, participant_status, Some(rating_given));
+        Ok(project_res)
     }
 
     pub async fn search_all_project(&self, query: ProjectQueryParams) -> Result<(Vec<ProjectRes>, i64), AppError> {

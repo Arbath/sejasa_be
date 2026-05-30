@@ -199,11 +199,16 @@ impl UserRepository {
         .await
     }
     
-    pub async fn search_user(&self, name: &String) -> Result<Vec<User>, sqlx::Error> {
+    pub async fn search_user(&self, name: &String) -> Result<Vec<UserProfile>, sqlx::Error> {
         let user_name = format!("%{}%", name);
-        sqlx::query_as::<_, User>(
+        sqlx::query_as::<_, UserProfile>(
         r#"
-            SELECT * FROM users WHERE name ILIKE $1 ORDER BY name ASC
+            SELECT 
+                u.id, u.name, u.email, u.created_at, u.account_type,
+                p.gender,p.descriptions, p.rating, p.contact, p.latitude, p.longitude, p.image, p.address
+            FROM users u
+            LEFT JOIN user_profile p ON u.id = p.user_id
+            WHERE name ILIKE $1 ORDER BY name ASC
             "#
         )
         .bind(user_name)
@@ -211,10 +216,15 @@ impl UserRepository {
         .await
     }
     
-    pub async fn find_all_users(&self) -> Result<Vec<User>, sqlx::Error> {
-        sqlx::query_as::<_, User>(
+    pub async fn find_all_users(&self) -> Result<Vec<UserProfile>, sqlx::Error> {
+        sqlx::query_as::<_, UserProfile>(
         r#"
-            SELECT * FROM users ORDER BY name ASC
+            SELECT 
+                u.id, u.name, u.email, u.created_at, u.account_type,
+                p.gender,p.descriptions, p.rating, p.contact, p.latitude, p.longitude, p.image, p.address
+            FROM users u
+            LEFT JOIN user_profile p ON u.id = p.user_id
+            ORDER BY name ASC
             "#
         )
         .fetch_all(&self.pool)

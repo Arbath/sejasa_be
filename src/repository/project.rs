@@ -708,6 +708,16 @@ impl ParticipantRepository {
         .await
     }
 
+    pub async fn find_one(&self, project_id: Uuid, user_id: Uuid) -> Result<ProjectParticipant, sqlx::Error>{
+        sqlx::query_as::<_, ProjectParticipant>(
+            r#"SELECT * FROM project_participant WHERE project_id = $1 AND user_id = $2"#
+        )
+        .bind(project_id)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+    }
+
     pub async fn create(&self, data: ProjectParticipantCreate) -> Result<ProjectParticipant, sqlx::Error> {
         sqlx::query_as::<_, ProjectParticipant>(
             r#"INSERT INTO project_participant(user_id, project_id, status) VALUES($1, $2, $3) RETURNING *"#

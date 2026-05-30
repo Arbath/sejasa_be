@@ -30,6 +30,26 @@ impl ReviewRepository {
         .await
     }
     
+    pub async fn find_participant_rating(&self, project_id: Uuid, participant_id: Uuid) -> Result<Review, sqlx::Error> {
+        sqlx::query_as::<_, Review> (
+            r#"SELECT * FROM review WHERE project_id = $1 AND reviewer_id = $2"#
+        )
+        .bind(project_id)
+        .bind(participant_id)
+        .fetch_one(&self.pool)
+        .await
+    }
+    
+    pub async fn find_owner_rating(&self, owner_id: Uuid, participant_id: Uuid) -> Result<Review, sqlx::Error> {
+        sqlx::query_as::<_, Review> (
+            r#"SELECT * FROM review WHERE user_id = $2 AND reviewer_id = $1"#
+        )
+        .bind(owner_id)
+        .bind(participant_id)
+        .fetch_one(&self.pool)
+        .await
+    }
+    
     pub async fn find_one(&self, review_id: Uuid) -> Result<Review, sqlx::Error> {
         sqlx::query_as::<_, Review> (
             r#"SELECT * FROM review WHERE id = $1"#
