@@ -94,6 +94,7 @@ impl ChatRepository {
             ) AS user,
             COALESCE(u.name, '') AS title,
             COALESCE(cd.content, '') AS body,
+            COALESCE(r.rating, 0.0) AS rating_given,
             (
                 SELECT COALESCE(COUNT(*), 0)::int4 
                 FROM detail_chat 
@@ -107,6 +108,7 @@ impl ChatRepository {
             LEFT JOIN users u ON p.user_id = u.id
             LEFT JOIN user_profile up ON c.user_id = up.user_id
             LEFT JOIN detail_chat cd ON c.id = cd.chat_id
+            LEFT JOIN review r ON c.project_id = r.project_id AND c.user_id = r.reviewer_id
             WHERE c.user_id = $1 ORDER BY c.id, cd.send_at DESC"#
         )
         .bind(user_id)
@@ -127,6 +129,7 @@ impl ChatRepository {
             ) AS user,
             COALESCE(u.name, '') AS title,
             COALESCE(cd.content, '') AS body,
+            COALESCE(r.rating, 0.0) AS rating_given,
             (
                 SELECT COALESCE(COUNT(*), 0)::int4 
                 FROM detail_chat 
@@ -142,6 +145,7 @@ impl ChatRepository {
             LEFT JOIN project_participant pp ON c.project_id = pp.project_id AND c.user_id = pp.user_id
             LEFT JOIN user_profile up ON c.user_id = up.user_id
             LEFT JOIN detail_chat cd ON c.id = cd.chat_id
+            LEFT JOIN review r ON c.project_id = r.project_id AND c.user_id = r.user_id
             WHERE c.project_id = $2 ORDER BY c.id, cd.send_at DESC"#
         )
         .bind(current_user_id)

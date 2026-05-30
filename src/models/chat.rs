@@ -41,6 +41,7 @@ pub struct ChatPreview {
     #[sqlx(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub participant_status: Option<ProjectParticipantStatus>,
+    pub rating_given: f64,
     pub timestamp: Option<DateTime<Utc>>
 }
 
