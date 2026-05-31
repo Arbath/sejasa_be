@@ -192,18 +192,19 @@ impl ReviewRepository {
         Ok(())
     }
 
-    pub async fn check_participant_has_reviewed(&self, user_id: Uuid, reviewer_id: Uuid) -> Result<bool, sqlx::Error> {
+    pub async fn check_participant_has_reviewed(&self, user_id: Uuid, reviewer_id: Uuid, project_id: Uuid) -> Result<bool, sqlx::Error> {
         let has_reviewed: bool = sqlx::query_scalar(
             r#"
             SELECT EXISTS(
                 SELECT 1 
                 FROM review 
-                WHERE user_id = $1 AND reviewer_id = $2
+                WHERE user_id = $1 AND reviewer_id = $2 AND project_id = $3
             )
             "#
         )
         .bind(user_id)
         .bind(reviewer_id)
+        .bind(project_id)
         .fetch_one(&self.pool)
         .await?;
 

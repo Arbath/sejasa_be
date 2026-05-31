@@ -211,7 +211,7 @@ impl ProjectService {
         if !is_owner {
             return Err(AppError::Forbidden("Anda tidak memiliki akses ke project ini".to_string()));
         }
-        let has_reviewed = self.review_repo.check_participant_has_reviewed(participant_id, user.id).await?;
+        let has_reviewed = self.review_repo.check_participant_has_reviewed(participant_id, user.id, project_id).await?;
         if has_reviewed {
             return Err(AppError::BadRequest("Anda sudah memberikan review untuk participant ini!".to_string()));
         }
